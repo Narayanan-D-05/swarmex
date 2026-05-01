@@ -1,0 +1,51 @@
+:root {
+  --bg-base:       #080C14;
+  --bg-card:       rgba(255, 255, 255, 0.03);
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --text-primary:  #F1F5F9;
+  --text-secondary:#94A3B8;
+  --text-tertiary: #475569;
+  --accent-blue:   #3B82F6;
+  --accent-green:  #10B981;
+  --accent-red:    #EF4444;
+  --font-sans:     'Space Grotesk', sans-serif;
+  --font-mono:     'Space Mono', monospace;
+}
+
+body {
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  margin: 0;
+  padding: 0;
+}
+
+.terminal-container {
+  padding: 2rem;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+button {
+  background: var(--accent-blue);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.logs {
+  margin-top: 1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  padding: 1rem;
+  min-height: 300px;
+  font-family: var(--font-mono);
+  overflow-y: auto;
+}
+
+pre {
+  margin: 0.5rem 0;
+}
