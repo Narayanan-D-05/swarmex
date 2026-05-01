@@ -1,4 +1,4 @@
-import { createWalletClient, http, encodeFunctionData, parseAbi, parseEther, maxUint256, defineChain } from 'viem';
+import { createWalletClient, http, encodeFunctionData, parseAbi, parseEther, maxUint256, defineChain, encodeAbiParameters } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { V4Planner, Actions } from '@uniswap/v4-sdk';
 // Define 0G Testnet chain (Galileo)
@@ -39,13 +39,33 @@ export async function runExecutor(state: any) {
     const swapParams = JSON.parse(state.decision);
     const amountIn = swapParams.amountIn || '1000000000000000000'; // 1 token default
 
+    // Properly encode hookData for the SwarmExecutorHook
+    const RiskAttestationAbi = [{
+      type: 'tuple',
+      name: 'attestation',
+      components: [
+        { name: 'sessionWallet', type: 'address' },
+        { name: 'tokenIn', type: 'address' },
+        { name: 'tokenOut', type: 'address' },
+        { name: 'maxSlippageBps', type: 'uint256' },
+        { name: 'maxAmountIn', type: 'uint256' },
+        { name: 'expiresAt', type: 'uint256' },
+        { name: 'swarmConsensusHash', type: 'bytes32' }
+      ]
+    }, { type: 'bytes', name: 'signature' }];
+
+    const encodedHookData = state.riskAttestation ? encodeAbiParameters(
+      RiskAttestationAbi,
+      [state.riskAttestation.attestation, state.riskAttestation.signature]
+    ) : '0x';
+
     const planner = new V4Planner();
     
     // Add real execution action
     planner.addAction(Actions.SWAP_EXACT_IN_SINGLE, [{
       poolKey: swapParams.poolKey || {
         currency0: '0x0000000000000000000000000000000000000000',
-        currency1: '0x1230000000000000000000000000000000000000',
+        currency1: process.env.USDC_ADDRESS! as `0x${string}`, // Use USDC from .env
         fee: 3000,
         tickSpacing: 60,
         hooks: process.env.HOOK_ADDRESS!
@@ -53,11 +73,11 @@ export async function runExecutor(state: any) {
       zeroForOne: swapParams.zeroForOne ?? true,
       amountIn: BigInt(amountIn),
       amountOutMinimum: 0n, // Minimal validation for now
-      hookData: state.riskAttestation || '0x',  // Encoded signature from Risk Agent
+      hookData: encodedHookData,
     }]);
 
     planner.addAction(Actions.SETTLE_ALL, [swapParams.poolKey?.currency0 || '0x0000000000000000000000000000000000000000', BigInt(amountIn)]);
-    planner.addAction(Actions.TAKE_ALL, [swapParams.poolKey?.currency1 || '0x1230000000000000000000000000000000000000', 0n]);
+    planner.addAction(Actions.TAKE_ALL, [swapParams.poolKey?.currency1 || process.env.USDC_ADDRESS! as `0x${string}`, 0n]);
 
     const { commands, inputs } = planner.finalize();
     const deadline = BigInt(Math.floor(Date.now() / 1000) + 1800); // +30 mins

@@ -13,16 +13,28 @@ const indexer = new Indexer(process.env.OG_STORAGE_INDEXER || 'https://indexer-s
 
 export async function uploadMemory(data: Record<string, unknown>): Promise<string> {
   const jsonBuf = Buffer.from(JSON.stringify(data));
-  const file = await ZgFile.fromBuffer(jsonBuf);
-  const flow = getFlowContract('0x22E03a6A89B950F1c82ec5e74F8eCa321a105296', provider); // Galileo Testnet flow contract
+  const tmpPath = `./tmp/upload_${randomUUID()}.json`;
+  
+  // Create tmp dir if not exists
+  await fs.mkdir('./tmp', { recursive: true });
+  await fs.writeFile(tmpPath, jsonBuf);
 
-  const [tree, err] = await file.merkleTree();
-  if (err !== null) throw err;
-  const rootHash = tree.rootHash();
+  try {
+    const file = await ZgFile.fromFilePath(tmpPath);
+    const flow = getFlowContract('0x22E03a6A89B950F1c82ec5e74F8eCa321a105296', provider); // Galileo Testnet flow contract
 
-  const tx = await indexer.upload(file, 0, flow.target, wallet);
-  if (tx.ok) return rootHash; // returns 64-char hex string without 0x
-  throw new Error(`0G Storage upload failed: ${tx.err}`);
+    const [tree, err] = await file.merkleTree();
+    if (err !== null) throw err;
+    const rootHash = tree.rootHash();
+
+    const tx = await indexer.upload(file, 0, flow.target, wallet);
+    if (!tx.ok) throw new Error(`0G Storage upload failed: ${tx.err}`);
+    
+    await file.close();
+    return rootHash;
+  } finally {
+    await fs.unlink(tmpPath).catch(() => {});
+  }
 }
 
 export async function downloadMemory(rootHash: string): Promise<Record<string, unknown>> {

@@ -1,5 +1,6 @@
 import { ethers } from 'ethers';
 import { uploadMemory } from '../shared/0g-storage-client';
+import { notifyKeeperHubOfExecution } from '../shared/keeperhub-client';
 
 export async function runReporter(state: any) {
   try {
@@ -20,10 +21,16 @@ export async function runReporter(state: any) {
     const tx = await registry.recordExecution(wallet.address, success);
     const receipt = await tx.wait();
 
+    // Notify KeeperHub of success
+    await notifyKeeperHubOfExecution(state.sessionId, 'success', { txHash: receipt.hash, rootHash });
+
     return {
       messages: [{ role: 'reporter', content: `Sync to 0G Chain complete. Tx: ${receipt.hash} | Storage Root: ${rootHash}` }]
     };
   } catch (err: any) {
+    // Notify KeeperHub of failure
+    await notifyKeeperHubOfExecution(state.sessionId, 'failed', { error: err.message });
+    
     return { error: err.message, messages: [{ role: 'reporter', content: 'Sync failed: ' + err.message }] };
   }
 }

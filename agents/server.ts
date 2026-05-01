@@ -6,10 +6,16 @@ import { notifyKeeperHubOfNewSession } from './shared/keeperhub-client';
 import { runSwarmGraph } from './orchestrator/orchestrator-agent';
 import { runInference } from './shared/0g-compute-client';
 import { signRiskAttestation } from './risk-guard/eip712-signer';
+import monitoringRouter from './shared/monitoring-router';
 
 const app = express();
 app.use(cors({ origin: 'http://localhost:3000' }));
 app.use(express.json());
+app.use('/monitor', monitoringRouter);
+
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
 
 // Bug #18 fix: per-session SSE client registry
 const sseClients = new Map<string, express.Response[]>();
