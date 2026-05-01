@@ -1,0 +1,17 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+solc = "0.8.26"
+evm_version = "cancun"     # OG.md: required for 0G Chain
+optimizer = true
+optimizer_runs = 200
+
+[rpc_endpoints]
+og_testnet   = "https://evmrpc-testnet.0g.ai"
+base_sepolia = "https://sepolia.base.org"
+
+[etherscan]
+# OG.md: verification endpoint
+og_testnet   = { key = "${OG_SCAN_API_KEY}", url = "https://chainscan-galileo.0g.ai/open/api" }
+base_sepolia = { key = "${BASESCAN_API_KEY}", url = "https://api-sepolia.basescan.org/api" }
