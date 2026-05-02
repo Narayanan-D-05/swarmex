@@ -5,7 +5,7 @@
     "node": ">=22.0.0"
   },
   "dependencies": {
-    "@0gfoundation/0g-ts-sdk": "latest",
+    "@0gfoundation/0g-storage-ts-sdk": "^1.2.8",
     "@0glabs/0g-serving-broker": "latest",
     "@langchain/core": "^0.3.0",
     "@langchain/langgraph": "^0.2.0",

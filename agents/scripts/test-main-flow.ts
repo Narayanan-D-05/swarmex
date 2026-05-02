@@ -5,6 +5,7 @@ import { ethers } from 'ethers';
 import { signRiskAttestation } from '../risk-guard/eip712-signer';
 import { uploadMemory } from '../shared/0g-storage-client';
 import { runInference, initializeProvider } from '../shared/0g-compute-client';
+import { notifyKeeperHubOfExecution } from '../shared/keeperhub-client';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -98,6 +99,27 @@ async function testMainFlow() {
   } catch (err: any) {
     console.error(`❌ 0G Compute Test Failed: ${err.message}`);
     console.log("💡 Tip: Ensure your AGENT_PRIVATE_KEY has A0GI and is funded in the compute ledger.");
+  }
+
+  // 5. Test KeeperHub Notification (Real Webhook -> Discord)
+  console.log("\n[5/5] Testing KeeperHub & Discord Notification...");
+  try {
+    if (!process.env.KEEPERHUB_WEBHOOK_TRIGGER_URL) {
+      console.log("⚠️ Skipping KeeperHub test: KEEPERHUB_WEBHOOK_TRIGGER_URL not found in .env");
+    } else {
+      console.log(`Sending mock trade report to: ${process.env.KEEPERHUB_WEBHOOK_TRIGGER_URL}`);
+      await notifyKeeperHubOfExecution(
+        "test-session-123",
+        "success",
+        {
+          txHash: "0x1234567890abcdef1234567890abcdef12345678",
+          rootHash: "0xabcdef1234567890abcdef1234567890abcdef12",
+        }
+      );
+      console.log("✅ KeeperHub notification sent! Check your Discord channel.");
+    }
+  } catch (err: any) {
+    console.error(`❌ KeeperHub Test Failed: ${err.message}`);
   }
 
   console.log("\n🏁 Test Suite Finished.");

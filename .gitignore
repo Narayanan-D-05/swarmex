@@ -3,6 +3,7 @@ node_modules/
 dist/
 build/
 .next/
+.next_old/
 out/
 
 # Environment Variables
@@ -32,6 +33,23 @@ Thumbs.db
 tmp/
 temp/
 .temp/
+agents/scratch/
+agents/learning/
+agents/researcher/
+p2.json
+p3.json
+p4.json
+p5.json
+p6.json
+p7.json
+p8.json
+p9.json
+patch.json
+payload.json
+rpc.json
+static_patch.json
+test_intent.json
+wt_patch.json
 
 # Secrets
 *.pem

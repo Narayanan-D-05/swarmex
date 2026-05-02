@@ -1,6 +1,7 @@
-import { createWalletClient, http, encodeFunctionData, parseAbi, parseEther, maxUint256, defineChain, encodeAbiParameters } from 'viem';
+import { createWalletClient, createPublicClient, http, encodeFunctionData, parseEther, maxUint256, defineChain, encodeAbiParameters } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { V4Planner, Actions } from '@uniswap/v4-sdk';
+import { signRiskAttestation } from '../risk-guard/eip712-signer';
+
 // Define 0G Testnet chain (Galileo)
 const ogTestnet = defineChain({
   id: 16602,
@@ -17,8 +18,8 @@ const ogTestnet = defineChain({
 export async function runExecutor(state: any) {
   try {
     if (!process.env.USER_PRIVATE_KEY) throw new Error("USER_PRIVATE_KEY must be provided for execution");
-    if (!process.env.POOL_MANAGER_ADDRESS_OG || !process.env.UNIVERSAL_ROUTER_ADDRESS || !process.env.PERMIT2_ADDRESS) {
-      throw new Error("Missing 0G Testnet contract variables (POOL_MANAGER_ADDRESS_OG, UNIVERSAL_ROUTER_ADDRESS, PERMIT2_ADDRESS)");
+    if (!process.env.POOL_MANAGER_ADDRESS_OG || !process.env.HOOK_ADDRESS) {
+      throw new Error("Missing contract variables (POOL_MANAGER_ADDRESS_OG, HOOK_ADDRESS)");
     }
 
     const account = privateKeyToAccount(process.env.USER_PRIVATE_KEY as `0x${string}`);
@@ -27,19 +28,36 @@ export async function runExecutor(state: any) {
       chain: ogTestnet,
       transport: http()
     });
+    const publicClient = createPublicClient({ chain: ogTestnet, transport: http() });
 
-    // 1. We would typically approve USDC here for Permit2.
-    // For this exact snippet, we assume USDC is already approved to PERMIT2 based on Phase 1 setup,
-    // or we'd execute the approve tx directly:
-    // const usdc = '...';
-    // await walletClient.writeContract({ ... approve PERMIT2 ... })
-    // Then permit2.approve(router, amount)
+    const paramsString = state.executionParams || '{}';
+    const swapParams = JSON.parse(paramsString);
+    
+    // ── Cryptographic Data Validation ─────────────────────────────────────────
+    const riskAttestation = state.riskAttestation;
+    if (!riskAttestation || !riskAttestation.signature) {
+      throw new Error("Execution Aborted: Missing cryptographic Risk Attestation. Every trade must be signed by the Risk Agent.");
+    }
 
-    // Decode the decision from orchestrator
-    const swapParams = JSON.parse(state.decision);
-    const amountIn = swapParams.amountIn || '1000000000000000000'; // 1 token default
+    const usdcAddress = (process.env.USDC_ADDRESS || '0xf4131cC0a6E8a482dfeF634001E43c07dD1f82f8') as `0x${string}`;
+    const nativeAddr = '0x0000000000000000000000000000000000000000' as `0x${string}`;
+    
+    const tIn  = (swapParams.tokenIn || '').toUpperCase();
+    if (!tIn) throw new Error("Execution Aborted: No input token specified.");
 
-    // Properly encode hookData for the SwarmExecutorHook
+    const tokenInAddr  = (tIn === 'USDC') ? usdcAddress : nativeAddr;
+    const zeroForOne = (tokenInAddr === nativeAddr);
+    
+    const decimalsIn = 18; 
+    const amountRaw = swapParams.amount || swapParams.amountIn;
+    if (!amountRaw) throw new Error("Execution Aborted: No amount specified for trade.");
+
+    const [whole, frag = ''] = amountRaw.toString().split('.');
+    const amountIn = BigInt(whole + frag.padEnd(decimalsIn, '0').slice(0, decimalsIn));
+
+    console.log(`[Executor] Verified Swap: ${amountRaw} ${tIn} -> (zeroForOne: ${zeroForOne}, amountIn: ${amountIn})`);
+
+    // ── Execute Swap ──────────────────────────────────────────────────────────
     const RiskAttestationAbi = [{
       type: 'tuple',
       name: 'attestation',
@@ -54,51 +72,86 @@ export async function runExecutor(state: any) {
       ]
     }, { type: 'bytes', name: 'signature' }];
 
-    const encodedHookData = state.riskAttestation ? encodeAbiParameters(
-      RiskAttestationAbi,
-      [state.riskAttestation.attestation, state.riskAttestation.signature]
-    ) : '0x';
-
-    const planner = new V4Planner();
+    const encodedHookData = encodeAbiParameters(RiskAttestationAbi, [riskAttestation.attestation, riskAttestation.signature]);
+    const poolSwapTestAddress = process.env.POOL_SWAP_TEST_ADDRESS as `0x${string}`;
     
-    // Add real execution action
-    planner.addAction(Actions.SWAP_EXACT_IN_SINGLE, [{
-      poolKey: swapParams.poolKey || {
-        currency0: '0x0000000000000000000000000000000000000000',
-        currency1: process.env.USDC_ADDRESS! as `0x${string}`, // Use USDC from .env
-        fee: 3000,
-        tickSpacing: 60,
-        hooks: process.env.HOOK_ADDRESS!
-      },
-      zeroForOne: swapParams.zeroForOne ?? true,
-      amountIn: BigInt(amountIn),
-      amountOutMinimum: 0n, // Minimal validation for now
-      hookData: encodedHookData,
-    }]);
+    const poolKey120 = {
+      currency0: nativeAddr,
+      currency1: usdcAddress, 
+      fee: 3000,
+      tickSpacing: 120,
+      hooks: process.env.HOOK_ADDRESS! as `0x${string}`
+    };
+    const poolKey60 = { ...poolKey120, tickSpacing: 60 };
 
-    planner.addAction(Actions.SETTLE_ALL, [swapParams.poolKey?.currency0 || '0x0000000000000000000000000000000000000000', BigInt(amountIn)]);
-    planner.addAction(Actions.TAKE_ALL, [swapParams.poolKey?.currency1 || process.env.USDC_ADDRESS! as `0x${string}`, 0n]);
+    if (!zeroForOne) {
+      // Selling USDC: Need approval
+      console.log(`[Executor] Real Approval required for USDC...`);
+      const erc20Abi = [{ "inputs": [{ "name": "spender", "type": "address" }, { "name": "amount", "type": "uint256" }], "name": "approve", "outputs": [{ "name": "", "type": "bool" }], "stateMutability": "nonpayable", "type": "function" }];
+      const approveTx = await walletClient.writeContract({
+        address: usdcAddress,
+        abi: erc20Abi,
+        functionName: 'approve',
+        args: [poolSwapTestAddress, amountIn]
+      });
+      await publicClient.waitForTransactionReceipt({ hash: approveTx });
+    }
 
-    const { commands, inputs } = planner.finalize();
-    const deadline = BigInt(Math.floor(Date.now() / 1000) + 1800); // +30 mins
+    const valueToSend = zeroForOne ? amountIn : 0n;
 
-    const UniversalRouterABI = parseAbi([
-      'function execute(bytes calldata commands, bytes[] calldata inputs, uint256 deadline) external payable'
-    ]);
+    const PoolSwapTestABI = [{
+      "inputs": [
+        { "components": [{ "name": "currency0", "type": "address" }, { "name": "currency1", "type": "address" }, { "name": "fee", "type": "uint24" }, { "name": "tickSpacing", "type": "int24" }, { "name": "hooks", "type": "address" }], "name": "key", "type": "tuple" },
+        { "components": [{ "name": "zeroForOne", "type": "bool" }, { "name": "amountSpecified", "type": "int256" }, { "name": "sqrtPriceLimitX96", "type": "uint160" }], "name": "params", "type": "tuple" },
+        { "components": [{ "name": "takeClaims", "type": "bool" }, { "name": "settleUsingBurn", "type": "bool" }], "name": "testSettings", "type": "tuple" },
+        { "name": "hookData", "type": "bytes" }
+      ],
+      "name": "swap",
+      "outputs": [{ "name": "delta", "type": "int256" }],
+      "stateMutability": "payable",
+      "type": "function"
+    }];
 
-    const txHash = await walletClient.writeContract({
-      address: process.env.UNIVERSAL_ROUTER_ADDRESS as `0x${string}`,
-      abi: UniversalRouterABI,
-      functionName: 'execute',
-      args: [commands, inputs, deadline],
-      value: 0n, // Handle Native ETH value if required
-    });
+    const swapParamsTuple = {
+      zeroForOne,
+      amountSpecified: -amountIn,
+      sqrtPriceLimitX96: zeroForOne ? 4295128739n + 1n : 1461446703485210103287273052203988822378723970342n - 1n
+    };
+
+    const testSettings = { takeClaims: false, settleUsingBurn: false };
+
+    console.log(`[Executor] Executing 100% real trade...`);
+    let txHash: `0x${string}`;
+    try {
+      txHash = await walletClient.writeContract({
+        address: poolSwapTestAddress,
+        abi: PoolSwapTestABI,
+        functionName: 'swap',
+        args: [poolKey120, swapParamsTuple, testSettings, encodedHookData],
+        value: valueToSend,
+        gas: 5000000n // Fixed high gas for 0G testnet reliability
+      });
+    } catch (err120: any) {
+      console.log(`[Executor] 120-spacing pool failed. Trying 60-spacing...`);
+      txHash = await walletClient.writeContract({
+        address: poolSwapTestAddress,
+        abi: PoolSwapTestABI,
+        functionName: 'swap',
+        args: [poolKey60, swapParamsTuple, testSettings, encodedHookData],
+        value: valueToSend,
+        gas: 5000000n
+      });
+    }
     
+    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+    if (receipt.status === 'reverted') throw new Error(`On-chain execution failed (Reverted).`);
+
     return {
       txHash,
-      messages: [{ role: 'executor', content: `Trade successfully executed on Uniswap v4 hook! Tx: ${txHash}` }]
+      messages: [{ role: 'executor', content: `Swarm intelligence successfully executed the trade! Verified on 0G Galileo. Tx: ${txHash}` }]
     };
   } catch (err: any) {
-    return { error: err.message, messages: [{ role: 'executor', content: 'Execution failed: ' + err.message }] };
+    console.error(`[Executor Error] ${err.message}`);
+    return { error: err.message, messages: [{ role: 'executor', content: 'Execution Aborted: ' + err.message }] };
   }
 }
