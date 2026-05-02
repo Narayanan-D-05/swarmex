@@ -6,3 +6,4 @@ it should be 100% real cryptography
 do not push any sensitive information to github
 if you need to add any sensitive information to the project, add it to the .env file and follow the .env.example file
 do not halucinate
+write simple clean code
