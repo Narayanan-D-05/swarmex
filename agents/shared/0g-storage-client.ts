@@ -1,5 +1,5 @@
 // Bug #1 fix: exact from OG.md (ZgFile everywhere)
-import { Indexer, ZgFile, getFlowContract } from '@0gfoundation/0g-ts-sdk';
+import { Indexer, ZgFile, getFlowContract } from '@0gfoundation/0g-storage-ts-sdk';
 import { randomUUID } from 'crypto';
 import { ethers } from 'ethers';
 import fs from 'fs/promises';
@@ -9,7 +9,7 @@ if (!process.env.AGENT_PRIVATE_KEY) throw new Error('AGENT_PRIVATE_KEY is missin
 const wallet = new ethers.Wallet(process.env.AGENT_PRIVATE_KEY, provider);
 
 // Bug #19 fix: read indexer from env since it scales horizontally
-const indexer = new Indexer(process.env.OG_STORAGE_INDEXER || 'https://indexer-storage-testnet-standard.0g.ai');
+const indexer = new Indexer(process.env.OG_STORAGE_INDEXER || 'https://indexer-storage-testnet-turbo.0g.ai');
 
 export async function uploadMemory(data: Record<string, unknown>): Promise<string> {
   const jsonBuf = Buffer.from(JSON.stringify(data));
@@ -21,17 +21,37 @@ export async function uploadMemory(data: Record<string, unknown>): Promise<strin
 
   try {
     const file = await ZgFile.fromFilePath(tmpPath);
-    const flow = getFlowContract('0x22E03a6A89B950F1c82ec5e74F8eCa321a105296', provider); // Galileo Testnet flow contract
+    try {
+      const flow = getFlowContract('0x22E03a6A89B950F1c82ec5e74F8eCa321a105296', provider); // Galileo Testnet flow contract
 
-    const [tree, err] = await file.merkleTree();
-    if (err !== null) throw err;
-    const rootHash = tree.rootHash();
+      const [tree, err] = await file.merkleTree();
+      if (err !== null) throw err;
+      const rootHash = tree.rootHash();
 
-    const tx = await indexer.upload(file, 0, flow.target, wallet);
-    if (!tx.ok) throw new Error(`0G Storage upload failed: ${tx.err}`);
-    
-    await file.close();
-    return rootHash;
+      // Use SDK's built-in retry functionality instead of manual retry loop
+      // This avoids the url.clone() issue that occurs with manual retries
+      const retryOpts = {
+        Retries: 3,
+        Interval: 3000, // 3 seconds between retries
+        MaxGasPrice: 100000000000 // 100 gwei
+      };
+
+      const [tx, uploadErr] = await indexer.upload(
+        file,
+        process.env.OG_CHAIN_RPC || 'https://evmrpc-testnet.0g.ai',
+        wallet,
+        undefined, // uploadOpts
+        retryOpts // retryOpts - use SDK's built-in retry
+      );
+
+      if (uploadErr) {
+        throw new Error(`0G Storage upload failed: ${uploadErr.message}`);
+      }
+
+      return rootHash;
+    } finally {
+      await file.close(); // Crucial: Fix DEP0137 warning
+    }
   } finally {
     await fs.unlink(tmpPath).catch(() => {});
   }

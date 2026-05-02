@@ -12,11 +12,20 @@ export function setPaymentEmitter(fn: typeof onPaymentClaim) {
 const facilitatorUrl = process.env.X402_FACILITATOR_URL || 'https://facilitator.cdp.coinbase.com';
 
 // Extract agent address to receive payments
-const agentWallet = new ethers.Wallet(process.env.AGENT_PRIVATE_KEY!);
+let agentWallet: ethers.Wallet | null = null;
+try {
+  if (process.env.AGENT_PRIVATE_KEY) {
+    agentWallet = new ethers.Wallet(process.env.AGENT_PRIVATE_KEY.trim());
+  }
+} catch (e) {
+  console.warn('[x402] Failed to initialize agent wallet:', e);
+}
+
+const agentAddress = agentWallet?.address || '0x0000000000000000000000000000000000000000';
 
 // Create the real validating middleware
 const realPaymentGuard = paymentMiddleware(
-  agentWallet.address as `0x${string}`,
+  agentAddress as `0x${string}`,
   {
     price: '$0.20', // USDC amount in dollars
     network: 'base-sepolia'

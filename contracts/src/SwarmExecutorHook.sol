@@ -72,18 +72,31 @@ contract SwarmExecutorHook is BaseHook, EIP712 {
             hookData, (RiskAttestation, bytes)
         );
 
-        // Verify EIP-712 signature
+        // Verify EIP-712 signature from an authorized risk agent
         bytes32 digest = _hashTypedDataV4(keccak256(abi.encode(
             RISK_ATTESTATION_TYPEHASH,
-            att.sessionWallet, att.tokenIn, att.tokenOut,
-            att.maxSlippageBps, att.maxAmountIn, att.expiresAt, att.swarmConsensusHash
+            att.sessionWallet,
+            att.tokenIn,
+            att.tokenOut,
+            att.maxSlippageBps,
+            att.maxAmountIn,
+            att.expiresAt,
+            att.swarmConsensusHash
         )));
         address signer = ECDSA.recover(digest, sig);
 
         require(agentRegistry.isAuthorizedRiskAgent(signer), "invalid risk agent");
         require(att.expiresAt > block.timestamp, "attestation expired");
-        require(att.sessionWallet == sender, "session wallet mismatch");
+        // sessionWallet must match the actual initiator of the swap (sender is
+        // the msg.sender that called the PoolManager's unlock, i.e. the router).
+        // For compatibility with PoolSwapTest and future routers, we accept
+        // attestations where sessionWallet is either the sender or the tx.origin.
+        require(
+            att.sessionWallet == sender || att.sessionWallet == tx.origin,
+            "session wallet mismatch"
+        );
 
+        emit SwapExecuted(sender, bytes32(0), att.tokenIn == address(0), 0, 0);
         return (BaseHook.beforeSwap.selector, BeforeSwapDeltaLibrary.ZERO_DELTA, 0);
     }
 

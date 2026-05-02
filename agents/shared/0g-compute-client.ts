@@ -29,42 +29,45 @@ export async function fundProvider(providerAddress: string): Promise<void> {
 
 export async function runInference(
   providerAddress: string,
-  messages: { role: string; content: string }[]
+  messages: { role: string; content: string }[],
+  maxRetries = 3
 ): Promise<string> {
   if (!initialized) throw new Error('Call initializeProvider() first (Bug #3)');
-  const b = await getBroker();
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const b = await getBroker();
+      const { endpoint, model } = await b.inference.getServiceMetadata(providerAddress);
+      const requestBody = JSON.stringify({ model, messages, stream: false });
+      const authHeaders = await b.inference.getRequestHeaders(providerAddress, requestBody);
 
-  const { endpoint, model } = await b.inference.getServiceMetadata(providerAddress);
-  const requestBody = JSON.stringify({ model, messages, stream: false });
-  const authHeaders = await b.inference.getRequestHeaders(providerAddress, requestBody);
+      const response = await fetch(`${endpoint}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
+        body: requestBody,
+      });
 
-  // Bug #25 fix: wrap in try/catch, never let LLM failure crash the graph
-  let response: Response;
-  try {
-    response = await fetch(`${endpoint}/chat/completions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...authHeaders },
-      body: requestBody,
-    });
-  } catch (err) {
-    throw new Error(`0G Compute fetch failed: ${(err as Error).message}`);
+      if (!response.ok) {
+        if (response.status === 429) throw new Error('0G Compute: rate limited (429)');
+        if (response.status === 503) throw new Error('0G Compute: Service Unavailable (503)');
+        throw new Error(`0G Compute HTTP ${response.status}`);
+      }
+
+      const json = await response.json();
+      console.log(`[0G Compute] Raw JSON:`, JSON.stringify(json));
+
+      const usage = json.usage;
+      if (typeof (b as any).processResponse === 'function') {
+        await (b as any).processResponse(providerAddress, json.id, usage);
+      }
+
+      return json.choices[0].message.content as string;
+    } catch (err: any) {
+      if (attempt === maxRetries) {
+        throw new Error(`0G Compute failed after ${maxRetries} attempts: ${err.message}`);
+      }
+      console.warn(`[0G Compute] Attempt ${attempt} failed: ${err.message}. Retrying in 3 seconds...`);
+      await new Promise(r => setTimeout(r, 3000)); // Wait 3 seconds before retrying
+    }
   }
-
-  if (!response.ok) {
-    // OG.md rate limit: 30 req/min, 429 = Too Many Requests
-    if (response.status === 429) throw new Error('0G Compute: rate limited (429) — retry');
-    throw new Error(`0G Compute HTTP ${response.status}`);
-  }
-
-  const json = await response.json();
-
-  // Bug #6 fix: extract usage for processResponse (if broker requires it)
-  const usage = json.usage; // { prompt_tokens, completion_tokens, total_tokens }
-  // Note: processResponse may or may not be required depending on broker version.
-  // If broker.processResponse exists, call it:
-  if (typeof (b as any).processResponse === 'function') {
-    await (b as any).processResponse(providerAddress, json.id, usage);
-  }
-
-  return json.choices[0].message.content as string;
+  throw new Error("Unreachable");
 }
