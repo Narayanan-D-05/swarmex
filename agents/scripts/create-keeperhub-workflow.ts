@@ -161,7 +161,7 @@ async function main() {
           config: {
             actionType: "discord/send-message",
             integrationId: DISCORD_INTEGRATION_ID,
-            discordMessage: "🚀 **SwarmEx Session Started**\nAnalyzing: `{{@discord-trigger:DiscordCommandTrigger.content || @discord-trigger:DiscordCommandTrigger.message}}`"
+            discordMessage: "🚀 **SwarmEx Session Started**\nAnalyzing: `c={{@discord-trigger:DiscordCommandTrigger.content}}` | `m={{@discord-trigger:DiscordCommandTrigger.message}}` | `t={{@discord-trigger:DiscordCommandTrigger.text}}`"
           },
           status: "idle",
         },

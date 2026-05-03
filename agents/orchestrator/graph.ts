@@ -29,6 +29,7 @@ const StateAnnotation = Annotation.Root({
   rootHash:       Annotation<string | null>(),
   registryTxHash: Annotation<string | null>(),
   chain:          Annotation<string | null>(),
+  riskAttestation: Annotation<any>(),
   error:          Annotation<string | null>()
 });
 
