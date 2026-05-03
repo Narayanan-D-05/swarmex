@@ -141,8 +141,8 @@ async function main() {
             httpMethod: "POST",
             httpHeaders: JSON.stringify({ "Content-Type": "application/json" }),
             httpBody: JSON.stringify({ 
-              intent: "{{@trigger:content || @trigger:message.content || @trigger:payload.content || @trigger:text}}",
-              sessionId: "discord-{{@trigger:author_id || @discord_trigger:discord_trigger.author_id}}"
+              intent: "{{@trigger:content || @trigger:message.content || @trigger:payload.content}}",
+              sessionId: "discord-{{@trigger:author_id}}"
             }),
           },
           status: "idle",
@@ -161,7 +161,7 @@ async function main() {
           config: {
             actionType: "discord/send-message",
             integrationId: DISCORD_INTEGRATION_ID,
-            discordMessage: "🚀 **SwarmEx Session Started**\nAnalyzing: c={{@trigger:content}} | m={{@trigger:message.content}} | p={{@trigger:payload.content}} | t={{@trigger:text}}"
+            discordMessage: "🚀 **SwarmEx Session Started**\nAnalyzing: `{{@trigger:content || @trigger:message.content}}`"
           },
           status: "idle",
         },
