@@ -141,8 +141,8 @@ async function main() {
             httpMethod: "POST",
             httpHeaders: JSON.stringify({ "Content-Type": "application/json" }),
             httpBody: JSON.stringify({ 
-              intent: "{{@discord-trigger:DiscordCommandTrigger.content}}",
-              sessionId: "discord-{{@discord-trigger:DiscordCommandTrigger.author_id}}"
+              intent: "{{@trigger:content || @discord-trigger:DiscordCommandTrigger.content || @trigger:message.content}}",
+              sessionId: "discord-{{@trigger:author_id || @discord-trigger:DiscordCommandTrigger.author_id}}"
             }),
           },
           status: "idle",
