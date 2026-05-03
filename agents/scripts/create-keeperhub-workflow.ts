@@ -38,45 +38,7 @@ async function main() {
 
   const patchRes = await api("PATCH", `/workflows/${WORKFLOW_ID}`, {
     nodes: [
-      // ── Node 1: Webhook Trigger (receives trade events from our Render backend) ──
-      {
-        id: "webhook-trigger",
-        type: "trigger",
-        data: {
-          type: "trigger",
-          label: "SwarmEx Trade Event",
-          description: "Receives POST from Render backend when a trade is executed on 0G",
-          config: {
-            triggerType: "Webhook",
-          },
-          status: "idle",
-        },
-        position: { x: 100, y: 100 },
-      },
-
-      // ── Node 2: HTTP Action (Discord Alert via Webhook) ──
-      {
-        id: "discord-action",
-        type: "action",
-        data: {
-          type: "action",
-          label: "Discord Trade Alert",
-          description: "Sends trade result to SwarmEx Discord channel via Webhook",
-          config: {
-            actionType: "HTTP Request",
-            endpoint: "https://discord.com/api/webhooks/1499859318776926410/SOsuh7YvCMzOSgQa0hv8QNTyKR4M6yEL8J6LMv8PKpqoihAWLLd0cdFtJFQLKz00s49T",
-            httpMethod: "POST",
-            httpHeaders: JSON.stringify({ "Content-Type": "application/json" }),
-            httpBody: JSON.stringify({ 
-              content: "🤖 **SwarmEx Trade Report**\n----------------------------\n{{@webhook-trigger:SwarmEx Trade Event.body.message}}\n\n🔗 **Tx:** https://sepolia.basescan.org/tx/{{@webhook-trigger:SwarmEx Trade Event.body.txHash}}\n📦 **Root Hash:** {{@webhook-trigger:SwarmEx Trade Event.body.rootHash}}"
-            }),
-          },
-          status: "idle",
-        },
-        position: { x: 400, y: 100 },
-      },
-
-      // ── Node 3: Schedule Trigger (fires every 5 min to keep Render alive) ──
+      // ── Node 1: Schedule Trigger (fires every 5 min to keep Render alive) ──
       {
         id: "schedule-trigger",
         type: "trigger",
@@ -90,10 +52,10 @@ async function main() {
           },
           status: "idle",
         },
-        position: { x: 100, y: 380 },
+        position: { x: 100, y: 100 },
       },
 
-      // ── Node 4: HTTP Action (calls /orchestrator/wake on the Render server) ──
+      // ── Node 2: HTTP Action (calls /orchestrator/wake on the Render server) ──
       {
         id: "wake-action",
         type: "action",
@@ -110,7 +72,7 @@ async function main() {
           },
           status: "idle",
         },
-        position: { x: 400, y: 380 },
+        position: { x: 400, y: 100 },
       },
 
       {
@@ -126,10 +88,10 @@ async function main() {
           },
           status: "active",
         },
-        position: { x: 100, y: 600 },
+        position: { x: 100, y: 400 },
       },
 
-      // ── Node 6: HTTP Action (calls /orchestrator/run) ──
+      // ── Node 4: HTTP Action (calls /orchestrator/run) ──
       {
         id: "discord-to-swarm-action",
         type: "action",
@@ -149,36 +111,12 @@ async function main() {
           },
           status: "idle",
         },
-        position: { x: 400, y: 600 },
-      },
-
-      // ── Node 7: HTTP Action (Acknowledges session started) ──
-      {
-        id: "discord-ack",
-        type: "action",
-        data: {
-          type: "action",
-          label: "Discord Acknowledgment",
-          description: "Sends session start acknowledgment via Discord Webhook",
-          config: {
-            actionType: "HTTP Request",
-            endpoint: "https://discord.com/api/webhooks/1499859318776926410/SOsuh7YvCMzOSgQa0hv8QNTyKR4M6yEL8J6LMv8PKpqoihAWLLd0cdFtJFQLKz00s49T",
-            httpMethod: "POST",
-            httpHeaders: JSON.stringify({ "Content-Type": "application/json" }),
-            httpBody: JSON.stringify({ 
-              content: "🚀 **SwarmEx Session Started**\nAnalyzing: `{{@trigger:message || @trigger:content || @trigger:data.message}}`"
-            }),
-          },
-          status: "idle",
-        },
-        position: { x: 400, y: 800 },
+        position: { x: 400, y: 400 },
       },
     ],
     edges: [
-      { id: "e1", source: "webhook-trigger", target: "discord-action" },
-      { id: "e2", source: "schedule-trigger", target: "wake-action" },
-      { id: "e3", source: "discord-trigger", target: "discord-to-swarm-action" },
-      { id: "e4", source: "discord-trigger", target: "discord-ack" },
+      { id: "e1", source: "schedule-trigger", target: "wake-action" },
+      { id: "e2", source: "discord-trigger", target: "discord-to-swarm-action" },
     ],
   });
 
