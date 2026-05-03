@@ -111,11 +111,11 @@ async function main() {
       },
 
       {
-        id: "discord-trigger",
+        id: "discord_trigger",
         type: "trigger",
         data: {
           type: "trigger",
-          label: "Discord Intent Trigger",
+          label: "discord_trigger",
           description: "Listens for messages in the SwarmEx Discord channel",
           config: {
             triggerType: "discord/on-message",
@@ -140,8 +140,8 @@ async function main() {
             httpMethod: "POST",
             httpHeaders: JSON.stringify({ "Content-Type": "application/json" }),
             httpBody: JSON.stringify({ 
-              intent: "{{@trigger:content || @trigger:message}}",
-              sessionId: "discord-{{@trigger:author_id || @trigger:authorId}}"
+              intent: "{{@discord_trigger:discord_trigger.content || @trigger:content || @trigger:message}}",
+              sessionId: "discord-{{@discord_trigger:discord_trigger.author_id || @trigger:author_id || @trigger:authorId}}"
             }),
           },
           status: "idle",
@@ -160,7 +160,7 @@ async function main() {
           config: {
             actionType: "discord/send-message",
             integrationId: DISCORD_INTEGRATION_ID,
-            discordMessage: "🚀 **SwarmEx Session Started**\nAnalyzing: `{{@trigger:content || @trigger:message}}`"
+            discordMessage: "🚀 **SwarmEx Session Started**\nAnalyzing: `{{@discord_trigger:discord_trigger.content || @trigger:content || @trigger:message}}`"
           },
           status: "idle",
         },
@@ -170,8 +170,8 @@ async function main() {
     edges: [
       { id: "e1", source: "webhook-trigger", target: "discord-action" },
       { id: "e2", source: "schedule-trigger", target: "wake-action" },
-      { id: "e3", source: "discord-trigger", target: "discord-to-swarm-action" },
-      { id: "e4", source: "discord-trigger", target: "discord-ack" },
+      { id: "e3", source: "discord_trigger", target: "discord-to-swarm-action" },
+      { id: "e4", source: "discord_trigger", target: "discord-ack" },
     ],
   });
 
