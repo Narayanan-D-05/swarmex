@@ -76,19 +76,33 @@ app.get('/stream/:sessionId', (req, res) => {
   });
 });
 
+const lastProcessedIntents = new Map<string, number>();
+
 app.post('/orchestrator/run', async (req, res) => {
   console.log(`[Server] /orchestrator/run received!`);
-  console.log(`[Headers]`, JSON.stringify(req.headers, null, 2));
-  console.log(`[Body]`, JSON.stringify(req.body, null, 2));
-
-  // Handle both flat body and KeeperHub nested body
   const body = req.body.body || req.body;
+  const intent = (body.intent || body.message || "").trim();
   const sessionId = body.sessionId || randomUUID();
-  const intent = body.intent || body.message;
 
   if (!intent) {
     return res.status(400).json({ error: "Missing intent" });
   }
+
+  // Deduplication & Bot Filter
+  const now = Date.now();
+  const lastTime = lastProcessedIntents.get(sessionId + intent) || 0;
+  
+  if (now - lastTime < 30000) {
+    console.log(`[Server] Ignoring duplicate intent for session ${sessionId}`);
+    return res.json({ sessionId, status: 'ignored_duplicate' });
+  }
+
+  if (intent.includes("SwarmEx") || intent.includes("Analyzing") || intent.includes("🚀")) {
+    console.log(`[Server] Ignoring bot-triggered intent: ${intent}`);
+    return res.json({ sessionId, status: 'ignored_bot' });
+  }
+
+  lastProcessedIntents.set(sessionId + intent, now);
 
   await notifyKeeperHubOfNewSession(sessionId);
   

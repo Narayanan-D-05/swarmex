@@ -114,11 +114,11 @@ async function main() {
       },
 
       {
-        id: "discord_trigger",
+        id: "discord-trigger",
         type: "trigger",
         data: {
           type: "trigger",
-          label: "DiscordCommandTrigger",
+          label: "Discord Intent Trigger",
           description: "Listens for messages in the SwarmEx Discord channel",
           config: {
             triggerType: "discord/on-message",
@@ -129,7 +129,7 @@ async function main() {
         position: { x: 100, y: 600 },
       },
 
-      // ── Node 6: HTTP Action (calls /orchestrator/run with Discord intent) ──
+      // ── Node 6: HTTP Action (calls /orchestrator/run) ──
       {
         id: "discord-to-swarm-action",
         type: "action",
@@ -143,8 +143,8 @@ async function main() {
             httpMethod: "POST",
             httpHeaders: JSON.stringify({ "Content-Type": "application/json" }),
             httpBody: JSON.stringify({ 
-              intent: "{{@discord_trigger:DiscordCommandTrigger.content || @discord_trigger:DiscordCommandTrigger.message || @trigger:content || @trigger:message || @trigger:payload.content}}",
-              sessionId: "discord-{{@discord_trigger:DiscordCommandTrigger.author_id || @trigger:author_id || @trigger:authorId}}"
+              intent: "{{@trigger:message || @trigger:content || @trigger:data.message || @trigger:payload.content}}",
+              sessionId: "discord-{{@trigger:authorId || @trigger:author_id || @trigger:user_id}}"
             }),
           },
           status: "idle",
@@ -166,7 +166,7 @@ async function main() {
             httpMethod: "POST",
             httpHeaders: JSON.stringify({ "Content-Type": "application/json" }),
             httpBody: JSON.stringify({ 
-              content: "🚀 **SwarmEx Session Started**\nAnalyzing: `{{@discord_trigger:DiscordCommandTrigger.content || @trigger:content || @trigger:message}}`"
+              content: "🚀 **SwarmEx Session Started**\nAnalyzing: `{{@trigger:message || @trigger:content || @trigger:data.message}}`"
             }),
           },
           status: "idle",
@@ -177,8 +177,8 @@ async function main() {
     edges: [
       { id: "e1", source: "webhook-trigger", target: "discord-action" },
       { id: "e2", source: "schedule-trigger", target: "wake-action" },
-      { id: "e3", source: "discord_trigger", target: "discord-to-swarm-action" },
-      { id: "e4", source: "discord_trigger", target: "discord-ack" },
+      { id: "e3", source: "discord-trigger", target: "discord-to-swarm-action" },
+      { id: "e4", source: "discord-trigger", target: "discord-ack" },
     ],
   });
 
