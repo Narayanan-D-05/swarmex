@@ -98,7 +98,7 @@ function EdgePath({ from, to, isActive, isCompleted }: { from: string; to: strin
 }
 
 export default function TerminalPage() {
-  const [intent, setIntent] = useState('swap 10 usdc to eth maximum slippage 1%');
+  const [intent, setIntent] = useState('swap 0.001 eth to usdc maximum slippage 1%');
   const [isRunning, setIsRunning] = useState(false);
   const [activeAgent, setActiveAgent] = useState<string | null>(null);
   const [visitedAgents, setVisitedAgents] = useState<Set<string>>(new Set());

@@ -12,7 +12,7 @@ import { signRiskAttestation } from './risk-guard/eip712-signer';
 import monitoringRouter from './shared/monitoring-router';
 
 const app = express();
-app.use(cors({ origin: 'http://localhost:3000' }));
+app.use(cors()); // Allow all origins for the Vercel/Render link
 app.use(express.json());
 
 // Request Logger
