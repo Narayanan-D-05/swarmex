@@ -120,9 +120,10 @@ async function main() {
           description: "Listens for messages in the SwarmEx Discord channel",
           config: {
             triggerType: "discord/on-message",
-            integrationId: DISCORD_INTEGRATION_ID
+            integrationId: DISCORD_INTEGRATION_ID,
+            channelId: DISCORD_CHANNEL_ID
           },
-          status: "idle",
+          status: "active",
         },
         position: { x: 100, y: 600 },
       },
