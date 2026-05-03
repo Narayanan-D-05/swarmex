@@ -149,11 +149,30 @@ async function main() {
         },
         position: { x: 400, y: 600 },
       },
+
+      // ── Node 7: Discord Action (Acknowledges session started) ──
+      {
+        id: "discord-ack",
+        type: "action",
+        data: {
+          type: "action",
+          label: "Discord Acknowledgment",
+          description: "Replies to Discord to confirm the swarm session has started",
+          config: {
+            actionType: "discord/send-message",
+            integrationId: DISCORD_INTEGRATION_ID,
+            discordMessage: "🚀 **SwarmEx Session Started**\nAnalyzing intent: `{{@discord-trigger:Discord Command Trigger.message}}`"
+          },
+          status: "idle",
+        },
+        position: { x: 400, y: 800 },
+      },
     ],
     edges: [
       { id: "e1", source: "webhook-trigger", target: "discord-action" },
       { id: "e2", source: "schedule-trigger", target: "wake-action" },
       { id: "e3", source: "discord-trigger", target: "discord-to-swarm-action" },
+      { id: "e4", source: "discord-trigger", target: "discord-ack" },
     ],
   });
 
