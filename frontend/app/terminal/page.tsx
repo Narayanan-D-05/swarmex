@@ -143,7 +143,8 @@ export default function TerminalPage() {
     const sessionId = Math.random().toString(36).substring(7);
 
     // ── Open SSE FIRST, then fire POST ──────────────────────────────────────
-    const es = new EventSource(`http://localhost:3001/stream/${sessionId}`);
+    const backendUrl = process.env.NEXT_PUBLIC_AGENT_SERVER_URL || 'http://localhost:3001';
+    const es = new EventSource(`${backendUrl}/stream/${sessionId}`);
     esRef.current = es;
 
     // ✅ KEY FIX: server emits `event: log`, not the default `message` event
@@ -191,14 +192,14 @@ export default function TerminalPage() {
     await new Promise(r => setTimeout(r, 300));
 
     try {
-      const res = await fetch('http://localhost:3001/orchestrator/run', {
+      const res = await fetch(`${backendUrl}/orchestrator/run`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ intent, sessionId }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
     } catch (err: any) {
-      addLog({ timestamp: new Date().toISOString(), agent: 'System', message: `Connection Error: ${err.message}. Ensure backend is running on port 3001.`, type: 'error' });
+      addLog({ timestamp: new Date().toISOString(), agent: 'System', message: `Connection Error: ${err.message}. Ensure backend is running at ${backendUrl}.`, type: 'error' });
       setIsRunning(false);
       setActiveAgent(null);
       es.close();

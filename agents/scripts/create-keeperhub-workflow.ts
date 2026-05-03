@@ -109,10 +109,51 @@ async function main() {
         },
         position: { x: 400, y: 380 },
       },
+
+      // ── Node 5: Discord Trigger (receives messages from Discord channel) ──
+      {
+        id: "discord-trigger",
+        type: "trigger",
+        data: {
+          type: "trigger",
+          label: "Discord Command Trigger",
+          description: "Listens for messages in the SwarmEx Discord channel",
+          config: {
+            triggerType: "discord/on-message",
+            integrationId: DISCORD_INTEGRATION_ID
+          },
+          status: "idle",
+        },
+        position: { x: 100, y: 600 },
+      },
+
+      // ── Node 6: HTTP Action (calls /orchestrator/run with Discord intent) ──
+      {
+        id: "discord-to-swarm-action",
+        type: "action",
+        data: {
+          type: "action",
+          label: "Discord-to-Swarm Execute",
+          description: "POSTs Discord message content to backend orchestrator",
+          config: {
+            actionType: "HTTP Request",
+            endpoint: `${RENDER_URL}/orchestrator/run`,
+            httpMethod: "POST",
+            httpHeaders: JSON.stringify({ "Content-Type": "application/json" }),
+            httpBody: JSON.stringify({ 
+              intent: "{{@discord-trigger:Discord Command Trigger.message}}",
+              sessionId: "discord-{{@discord-trigger:Discord Command Trigger.authorId}}"
+            }),
+          },
+          status: "idle",
+        },
+        position: { x: 400, y: 600 },
+      },
     ],
     edges: [
       { id: "e1", source: "webhook-trigger", target: "discord-action" },
       { id: "e2", source: "schedule-trigger", target: "wake-action" },
+      { id: "e3", source: "discord-trigger", target: "discord-to-swarm-action" },
     ],
   });
 

@@ -77,30 +77,35 @@ app.get('/stream/:sessionId', (req, res) => {
 });
 
 app.post('/orchestrator/run', async (req, res) => {
-  const sessionId = req.body.sessionId || randomUUID();
-  const { intent } = req.body;
+  // Handle both flat body and KeeperHub nested body
+  console.log(`[Server] /orchestrator/run received:`, JSON.stringify(req.body, null, 2));
+  const body = req.body.body || req.body;
+  const sessionId = body.sessionId || randomUUID();
+  const intent = body.intent || body.message;
+
+  if (!intent) {
+    return res.status(400).json({ error: "Missing intent" });
+  }
 
   await notifyKeeperHubOfNewSession(sessionId);
   
-  // Start LangGraph graph asynchronously
   runSwarmGraph(sessionId, intent, emitToSession).catch(err => {
     console.error(`[Server Swarm Catch] ${err.message}`);
-    if (err.stack) console.error(err.stack);
   });
 
   res.json({ sessionId, status: 'started' });
 });
 
 app.post('/orchestrator/wake', (req, res) => {
-  // KeeperHub webhook callback — re-evaluates idle sessions for continuous monitoring
-  const sessionId = req.body.sessionId || randomUUID();
-  console.log(`[KeeperHub] Webhook received. Waking up swarm for continuous monitoring (session ${sessionId})`);
+  console.log(`[Server] /orchestrator/wake received:`, JSON.stringify(req.body, null, 2));
+  const body = req.body.body || req.body;
+  const sessionId = body.sessionId || randomUUID();
+  console.log(`[KeeperHub] Wake webhook received. session ${sessionId}`);
   
-  const intent = req.body.intent || "KeeperHub continuous market monitoring check";
+  const intent = body.intent || body.message || "KeeperHub continuous market monitoring check";
   
   runSwarmGraph(sessionId, intent, emitToSession).catch(err => {
     console.error(`[Server Swarm Catch] ${err.message}`);
-    if (err.stack) console.error(err.stack);
   });
   
   res.json({ received: true, status: 'waking', sessionId });
@@ -166,6 +171,7 @@ const PORT = process.env.PORT ?? 3001;
       await initializeProvider(process.env.OG_COMPUTE_PROVIDER);
       console.log(`0G Compute Provider Initialized.`);
     }
+
     app.listen(PORT, () => {
       console.log(`Agent server listening on ${PORT}`);
     });

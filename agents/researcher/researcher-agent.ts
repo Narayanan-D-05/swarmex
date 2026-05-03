@@ -1,5 +1,6 @@
 import { runInference } from '../shared/0g-compute-client';
 import { createPublicClient, http, parseAbi, defineChain } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 
 // Base Sepolia — where Uniswap v4 is actually deployed
 const baseSepolia = defineChain({
@@ -62,9 +63,10 @@ async function fetchOffChainData(parsedIntent: any) {
 
     const amountBase = BigInt(Math.floor(parseFloat(amount) * (10 ** tokenInInfo.decimals))).toString();
 
-    const swapper = process.env.USER_PRIVATE_KEY
-      ? '0x0000000000000000000000000000000000000001'
-      : '0x0000000000000000000000000000000000000001';
+    const account = process.env.USER_PRIVATE_KEY 
+      ? privateKeyToAccount(process.env.USER_PRIVATE_KEY as `0x${string}`)
+      : null;
+    const swapper = account ? account.address : '0x0000000000000000000000000000000000000001';
 
     const quotePayload = {
     // For price discovery, use Ethereum Mainnet (chainId 1) — testnet has no indexed liquidity.
