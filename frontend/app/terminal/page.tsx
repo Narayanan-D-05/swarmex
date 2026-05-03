@@ -143,7 +143,11 @@ export default function TerminalPage() {
     const sessionId = Math.random().toString(36).substring(7);
 
     // ── Open SSE FIRST, then fire POST ──────────────────────────────────────
-    const backendUrl = process.env.NEXT_PUBLIC_AGENT_SERVER_URL || 'http://localhost:3001';
+    const backendUrl = process.env.NEXT_PUBLIC_AGENT_SERVER_URL || 
+      (typeof window !== 'undefined' && window.location.hostname === 'localhost' 
+        ? 'http://localhost:3001' 
+        : 'https://swarmex.onrender.com');
+        
     const es = new EventSource(`${backendUrl}/stream/${sessionId}`);
     esRef.current = es;
 
