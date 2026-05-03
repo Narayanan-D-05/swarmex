@@ -25,9 +25,15 @@ Example: {"tokenIn": "USDC", "tokenOut": "ETH", "amount": "10", "slippage": "1%"
 
 export async function runOrchestrator(state: any) {
   const provider = process.env.OG_COMPUTE_PROVIDER!;
+  console.log(`[Supervisor] Decision logic starting for session ${state.sessionId} using provider ${provider}...`);
+  
   const intelligence = state.marketIntelligence;
   const learningParams = state.learningParams;
-  if (!learningParams) throw new Error("Missing Risk Assessment parameters.");
+  
+  if (!learningParams) {
+    console.error("[Supervisor] Critical: Missing learningParams in state.");
+    return { error: "Decision Engine: Missing Risk Assessment parameters." };
+  }
   
   // Perform math in code to prevent LLM hallucination
   const gasCostUsd = intelligence?.apiQuote?.analysis?.gasCostUsd || 0;
@@ -103,14 +109,22 @@ export async function runSwarmGraph(sessionId: string, intent: string, emit: (id
     for await (const chunk of stream) {
       // Handle potential parallel nodes in a single chunk
       for (const nodeName of Object.keys(chunk)) {
-        const output = chunk[nodeName];
-        lastState = { ...lastState, ...output };
-
         // Immediate notification that the agent is active
         emit(sessionId, 'log', {
           timestamp: new Date().toISOString(),
           agent: nodeName,
-          message: `Agent ${nodeName} is processing: ${output.messages?.[output.messages.length - 1]?.content || 'Starting task...'}`,
+          message: `Agent ${nodeName} is starting work...`,
+          type: 'info'
+        });
+
+        const output = chunk[nodeName];
+        lastState = { ...lastState, ...output };
+
+        // Detail update
+        emit(sessionId, 'log', {
+          timestamp: new Date().toISOString(),
+          agent: nodeName,
+          message: `Agent ${nodeName} update: ${output.messages?.[output.messages.length - 1]?.content || 'Task in progress...'}`,
           type: 'info'
         });
       }
