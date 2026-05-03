@@ -10,18 +10,19 @@ const REGISTRY_ABI = [
 // Explorer URLs
 const BASE_SEPOLIA_SCAN = 'https://sepolia.basescan.org/tx';
 const OG_SCAN           = 'https://chainscan-galileo.0g.ai/tx';
-const OG_STORAGE_SCAN   = 'https://storagescan-newton.0g.ai';
+const OG_STORAGE_SCAN   = 'https://storagescan-galileo.0g.ai';
 
 export async function runReporter(state: any) {
   const tradeTxHash: string | null = state.txHash || null;
   const chain:       string         = state.chain  || 'base-sepolia';
   const success = !state.error && !!tradeTxHash;
   let rootHash:       string | null = null;
+  let storageTxHash:  string | null = null;
   let registryTxHash: string | null = null;
 
   // ── 1. Upload execution log to 0G Storage ────────────────────────────────
   try {
-    rootHash = await uploadMemory({
+    const uploadRes = await uploadMemory({
       result:      success,
       txHash:      tradeTxHash,
       chain,
@@ -30,6 +31,8 @@ export async function runReporter(state: any) {
       parsedIntent: state.parsedIntent,
       riskParams:  state.learningParams,
     });
+    rootHash = uploadRes.rootHash;
+    storageTxHash = uploadRes.txHash;
     console.log(`[Reporter] 0G Storage upload complete. Root hash: ${rootHash}`);
   } catch (storageErr: any) {
     console.error(`[Reporter] 0G Storage upload failed (non-fatal): ${storageErr.message}`);
@@ -56,12 +59,20 @@ export async function runReporter(state: any) {
     }
   }
 
-  // ── 3. Notify KeeperHub ──────────────────────────────────────────────────
+  // ── 3. Notify KeeperHub (fires Discord with links) ────────────────────────
   try {
+    const computeStr = state.parsedIntent ? JSON.stringify(state.parsedIntent) : undefined;
     await notifyKeeperHubOfExecution(
       state.sessionId,
       success ? 'success' : 'failed',
-      { txHash: tradeTxHash ?? undefined, rootHash: rootHash ?? undefined, error: state.error },
+      {
+        txHash:          tradeTxHash ?? undefined,
+        rootHash:        rootHash    ?? undefined,
+        storageTxHash:   storageTxHash ?? undefined,
+        registryTxHash:  registryTxHash ?? undefined,
+        computeResult:   computeStr,
+        error:           state.error,
+      },
     );
   } catch (notifyErr: any) {
     console.error(`[Reporter] KeeperHub notification failed: ${notifyErr.message}`);
@@ -93,6 +104,7 @@ export async function runReporter(state: any) {
     txHash:    tradeTxHash,
     chain,
     rootHash,
+    storageTxHash,
     registryTxHash,
     messages: [{ role: 'reporter', content: summaryContent }],
   };

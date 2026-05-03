@@ -67,16 +67,29 @@ async function fetchOffChainData(parsedIntent: any) {
       : '0x0000000000000000000000000000000000000001';
 
     const quotePayload = {
-      tokenInChainId:  84532,
-      tokenIn:         tokenInInfo.address,
-      tokenOutChainId: 84532,
-      tokenOut:        tokenOutInfo.address,
-      amount:          amountBase,
+    // For price discovery, use Ethereum Mainnet (chainId 1) — testnet has no indexed liquidity.
+    // The actual swap execution happens on Base Sepolia separately in executor-agent.ts.
+    const MAINNET_TOKENS: Record<string, { address: string; decimals: number }> = {
+      USDC: { address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', decimals: 6 },
+      WETH: { address: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', decimals: 18 },
+      ETH:  { address: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', decimals: 18 },
+    };
+
+    const mainnetIn  = MAINNET_TOKENS[tIn]  || MAINNET_TOKENS['USDC'];
+    const mainnetOut = MAINNET_TOKENS[tOut] || MAINNET_TOKENS['WETH'];
+    const amountMainnet = BigInt(Math.floor(parseFloat(amount) * (10 ** mainnetIn.decimals))).toString();
+
+    const quotePayload = {
+      tokenInChainId:  1,
+      tokenIn:         mainnetIn.address,
+      tokenOutChainId: 1,
+      tokenOut:        mainnetOut.address,
+      amount:          amountMainnet,
       type:            'EXACT_INPUT',
       swapper,
     };
 
-    console.log(`[Researcher:OffChain] Fetching quote from Uniswap API...`);
+    console.log(`[Researcher:OffChain] Fetching price quote from Uniswap API (Mainnet pricing)...`);
     const res = await fetch('https://trade-api.gateway.uniswap.org/v1/quote', {
       method: 'POST',
       headers: {
@@ -94,9 +107,13 @@ async function fetchOffChainData(parsedIntent: any) {
     const outAmountBase = quoteData.quote?.output?.amount || '0';
     const gasFeeUsd = parseFloat(quoteData.quote?.gasFeeUSD || '0');
     const priceImpact = quoteData.quote?.priceImpact || 0;
-    
-    const outEth = parseFloat(outAmountBase) / 1e18;
-    const expectedValueUsd = outEth * 3000;
+
+    // Calculate expected value based on actual output amount
+    const decimalsOut = mainnetOut.decimals;
+    const outAmount = parseFloat(outAmountBase) / (10 ** decimalsOut);
+    // Use a rough ETH price for WETH output estimation
+    const ethPriceUsd = 3000;
+    const expectedValueUsd = tOut === 'USDC' ? outAmount : outAmount * ethPriceUsd;
     const expectedProfit = expectedValueUsd - gasFeeUsd;
 
     return {
@@ -105,7 +122,7 @@ async function fetchOffChainData(parsedIntent: any) {
         expectedProfitUsd: expectedProfit,
         gasCostUsd: gasFeeUsd,
         priceImpact,
-        isProfitable: expectedProfit > gasFeeUsd,
+        isProfitable: expectedProfit > 0,
         liquiditySufficient: priceImpact < 0.05
       }
     };

@@ -9,9 +9,9 @@ if (!process.env.AGENT_PRIVATE_KEY) throw new Error('AGENT_PRIVATE_KEY is missin
 const wallet = new ethers.Wallet(process.env.AGENT_PRIVATE_KEY, provider);
 
 // Bug #19 fix: read indexer from env since it scales horizontally
-const indexer = new Indexer(process.env.OG_STORAGE_INDEXER || 'https://indexer-storage-testnet-turbo.0g.ai');
+const indexer = new Indexer(process.env.OG_STORAGE_INDEXER || 'https://indexer-storage-testnet-standard.0g.ai');
 
-export async function uploadMemory(data: Record<string, unknown>): Promise<string> {
+export async function uploadMemory(data: Record<string, unknown>): Promise<{ rootHash: string, txHash: string | null }> {
   const jsonBuf = Buffer.from(JSON.stringify(data));
   const tmpPath = `./tmp/upload_${randomUUID()}.json`;
   
@@ -48,7 +48,13 @@ export async function uploadMemory(data: Record<string, unknown>): Promise<strin
         throw new Error(`0G Storage upload failed: ${uploadErr.message}`);
       }
 
-      return rootHash;
+      let txHash = null;
+      if (tx) {
+        if (typeof tx === 'string') txHash = tx;
+        else if (tx.txHash) txHash = tx.txHash;
+        else if (tx.txHashes && tx.txHashes.length > 0) txHash = tx.txHashes[0];
+      }
+      return { rootHash, txHash };
     } finally {
       await file.close(); // Crucial: Fix DEP0137 warning
     }

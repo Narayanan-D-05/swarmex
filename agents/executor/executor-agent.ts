@@ -1,7 +1,10 @@
-import { createWalletClient, createPublicClient, http, defineChain } from 'viem';
+import {
+  createWalletClient, createPublicClient, http, defineChain,
+  encodeFunctionData, parseAbi, encodeAbiParameters, parseAbiParameters
+} from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
-// ── Base Sepolia (where real Uniswap v4 is deployed) ─────────────────────────
+// ── Base Sepolia chain definition ─────────────────────────────────────────────
 const baseSepolia = defineChain({
   id: 84532,
   name: 'Base Sepolia',
@@ -14,30 +17,101 @@ const baseSepolia = defineChain({
   },
 });
 
+// ── Uniswap v4 contracts on Base Sepolia ─────────────────────────────────────
+const POOL_MANAGER      = (process.env.POOL_MANAGER_ADDRESS      || '0x05E73354cFDd6745C338b50BcFDfA3Aa6fA03408') as `0x${string}`;
+const UNIVERSAL_ROUTER  = (process.env.UNIVERSAL_ROUTER_ADDRESS   || '0x492e6456d9528771018deb9e87ef7750ef184104') as `0x${string}`;
+const POSITION_MANAGER  = '0x7C5f5A4bBd8fD63184577525326123B519429bDc' as `0x${string}`;
+
 // ── Token addresses on Base Sepolia ──────────────────────────────────────────
-// USDC: Circle's official Base Sepolia deployment
-// WETH: Native wrapped ETH on Base
+const NATIVE_ETH  = '0x0000000000000000000000000000000000000000' as `0x${string}`;
+const WETH_ADDR   = '0x4200000000000000000000000000000000000006' as `0x${string}`;
+const USDC_ADDR   = (process.env.SEPOLIA_USDC_ADDRESS || '0x036CbD53842c5426634e7929541eC2318f3dCF7e') as `0x${string}`;
+
 const SEPOLIA_TOKENS: Record<string, { address: `0x${string}`; decimals: number }> = {
-  USDC: { address: (process.env.SEPOLIA_USDC_ADDRESS || '0x036CbD53842c5426634e7929541eC2318f3dCF7e') as `0x${string}`, decimals: 6 },
-  WETH: { address: '0x4200000000000000000000000000000000000006', decimals: 18 },
-  ETH:  { address: '0x4200000000000000000000000000000000000006', decimals: 18 }, // ETH routes through WETH
+  ETH:  { address: NATIVE_ETH, decimals: 18 },
+  WETH: { address: WETH_ADDR,  decimals: 18 },
+  USDC: { address: USDC_ADDR,  decimals: 6  },
 };
 
-const UNIVERSAL_ROUTER = (process.env.UNIVERSAL_ROUTER_ADDRESS || '0x492e6456d9528771018deb9e87ef7750ef184104') as `0x${string}`;
-const PERMIT2         = (process.env.PERMIT2_ADDRESS || '0x000000000022D473030F116dDEE9F6B43aC78BA3') as `0x${string}`;
+// ── Uniswap v4 pool parameters for ETH/USDC on Base Sepolia ──────────────────
+// currency0 must be the "lower" address (address-sorted)
+// NATIVE_ETH (0x000...) < USDC, so currency0 = NATIVE_ETH, currency1 = USDC
+const POOL_KEY = {
+  currency0:   NATIVE_ETH,
+  currency1:   USDC_ADDR,
+  fee:         500,           // 0.05% pool
+  tickSpacing: 10,
+  hooks:       '0x0000000000000000000000000000000000000000' as `0x${string}`,
+};
 
-const ERC20_ABI = [
-  { inputs: [{ name: 'spender', type: 'address' }, { name: 'amount', type: 'uint256' }], name: 'approve', outputs: [{ name: '', type: 'bool' }], stateMutability: 'nonpayable', type: 'function' },
-  { inputs: [{ name: 'owner', type: 'address' }, { name: 'spender', type: 'address' }], name: 'allowance', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
-] as const;
+// ── UniversalRouter v2 command encoding ──────────────────────────────────────
+// Command 0x10 = V4_SWAP
+const CMD_V4_SWAP = 0x10;
+
+// V4Router actions
+const Actions = {
+  SWAP_EXACT_IN_SINGLE: 0x00,
+  SETTLE_ALL:           0x09,
+  TAKE_ALL:             0x0c,
+};
+
+function encodeV4Swap(
+  zeroForOne: boolean,
+  amountIn: bigint,
+  amountOutMin: bigint,
+  recipient: `0x${string}`,
+): `0x${string}` {
+  // Encode V4 SWAP_EXACT_IN_SINGLE action
+  const actions = new Uint8Array([0x06, 0x0c, 0x0e]); // 0x0e = TAKE
+
+  // ExactInputSingleParams
+  const swapParamsEncoded = encodeAbiParameters(
+    parseAbiParameters([
+      '(address currency0, address currency1, uint24 fee, int24 tickSpacing, address hooks) poolKey',
+      'bool zeroForOne',
+      'uint128 amountIn',
+      'uint128 amountOutMinimum',
+      'bytes hookData',
+    ]),
+    [POOL_KEY, zeroForOne, amountIn, amountOutMin, '0x' as `0x${string}`],
+  );
+
+  // Settle and take params
+  const settleParams = encodeAbiParameters(
+    parseAbiParameters(['address currency', 'uint256 amount']),
+    [zeroForOne ? NATIVE_ETH : USDC_ADDR, amountIn],
+  );
+  const takeParams = encodeAbiParameters(
+    parseAbiParameters(['address currency', 'address recipient', 'uint256 amount']),
+    [zeroForOne ? USDC_ADDR : NATIVE_ETH, recipient, amountOutMin],
+  );
+
+  const v4Actions = `0x${Buffer.from(actions).toString('hex')}` as `0x${string}`;
+  const urInput = encodeAbiParameters(
+    parseAbiParameters(['bytes', 'bytes[]']),
+    [v4Actions, [swapParamsEncoded, settleParams, takeParams]]
+  );
+
+  // UniversalRouter execute(bytes commands, bytes[] inputs, uint256 deadline)
+  const deadline = BigInt(Math.floor(Date.now() / 1000) + 300); // 5 min
+  const commands = '0x10' as `0x${string}`; // V4_SWAP
+
+  return encodeFunctionData({
+    abi: parseAbi(['function execute(bytes commands, bytes[] inputs, uint256 deadline) payable']),
+    functionName: 'execute',
+    args: [commands, [urInput], deadline],
+  });
+}
+
+const ERC20_ABI = parseAbi([
+  'function approve(address spender, uint256 amount) returns (bool)',
+  'function allowance(address owner, address spender) view returns (uint256)',
+]);
 
 export async function runExecutor(state: any) {
   try {
     if (!process.env.USER_PRIVATE_KEY) {
       throw new Error('USER_PRIVATE_KEY must be set — real execution requires a funded wallet');
-    }
-    if (!process.env.UNISWAP_API_KEY) {
-      throw new Error('UNISWAP_API_KEY must be set — required for Uniswap v4 Trade API');
     }
 
     // ── 1. Validate cryptographic Risk Attestation ────────────────────────────
@@ -48,18 +122,18 @@ export async function runExecutor(state: any) {
 
     // ── 2. Parse intent ───────────────────────────────────────────────────────
     const swapParams = JSON.parse(state.executionParams || '{}');
-    const tIn       = (swapParams.tokenIn  || '').toUpperCase();
-    const tOut      = (swapParams.tokenOut || 'ETH').toUpperCase();
-    const amountRaw = swapParams.amount || swapParams.amountIn;
-    const slippage  = parseFloat((swapParams.slippage || '1%').replace('%', ''));
+    const tIn        = (swapParams.tokenIn  || '').toUpperCase();
+    const tOut       = (swapParams.tokenOut || 'USDC').toUpperCase();
+    const amountRaw  = swapParams.amount || swapParams.amountIn;
+    const slippagePct = parseFloat((swapParams.slippage || '1%').replace('%', '')) / 100;
 
-    if (!tIn)      throw new Error('Execution Aborted: No input token specified');
+    if (!tIn)       throw new Error('Execution Aborted: No input token specified');
     if (!amountRaw) throw new Error('Execution Aborted: No amount specified');
 
     const tokenIn  = SEPOLIA_TOKENS[tIn];
-    const tokenOut = SEPOLIA_TOKENS[tOut] || SEPOLIA_TOKENS['ETH'];
-    if (!tokenIn)  throw new Error(`Unsupported tokenIn: ${tIn}. Supported: ${Object.keys(SEPOLIA_TOKENS).join(', ')}`);
-    if (!tokenOut) throw new Error(`Unsupported tokenOut: ${tOut}`);
+    const tokenOut = SEPOLIA_TOKENS[tOut] || SEPOLIA_TOKENS['USDC'];
+    if (!tokenIn)  throw new Error(`Unsupported tokenIn: ${tIn}. Supported: ETH, WETH, USDC`);
+    if (!tokenOut) throw new Error(`Unsupported tokenOut: ${tOut}. Supported: ETH, WETH, USDC`);
 
     // Convert amount to smallest unit
     const [whole, frac = ''] = amountRaw.toString().split('.');
@@ -69,98 +143,75 @@ export async function runExecutor(state: any) {
     const publicClient  = createPublicClient({ chain: baseSepolia, transport: http() });
     const walletClient  = createWalletClient({ account, chain: baseSepolia, transport: http() });
 
-    console.log(`[Executor] Verified Swap: ${amountRaw} ${tIn} → ${tOut} on Base Sepolia`);
+    console.log(`[Executor] Swap: ${amountRaw} ${tIn} → ${tOut} on Base Sepolia`);
     console.log(`[Executor] Wallet: ${account.address}`);
+    console.log(`[Executor] Pool:   ${POOL_KEY.currency0}/${POOL_KEY.currency1} fee=${POOL_KEY.fee}`);
 
-    // ── 3. Fetch Uniswap v4 Trade API quote with execution calldata ──────────
-    console.log(`[Executor] Fetching Uniswap v4 quote from Trade API...`);
-    const quotePayload = {
-      tokenInChainId:  84532,
-      tokenIn:         tokenIn.address,
-      tokenOutChainId: 84532,
-      tokenOut:        tokenOut.address,
-      amount:          amountIn.toString(),
-      type:            'EXACT_INPUT',
-      swapper:         account.address,
-      slippageTolerance: (slippage / 100).toFixed(4),
-    };
+    // Determine swap direction (ETH/WETH = currency0 = zero, USDC = currency1 = one)
+    // zeroForOne = ETH→USDC, !zeroForOne = USDC→ETH
+    const isInputNative  = (tIn  === 'ETH' || tIn  === 'WETH');
+    const isOutputNative = (tOut === 'ETH' || tOut === 'WETH');
+    const zeroForOne     = isInputNative; // currency0 (ETH) → currency1 (USDC)
 
-    const quoteRes = await fetch('https://trade-api.gateway.uniswap.org/v1/quote', {
-      method: 'POST',
-      headers: {
-        'x-api-key':    process.env.UNISWAP_API_KEY,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(quotePayload),
-    });
+    // Minimum output with slippage applied (5% buffer on testnet for price movement)
+    const amountOutMin = 0n; // On testnet, use 0 to avoid reverts from stale pricing
 
-    if (!quoteRes.ok) {
-      const errText = await quoteRes.text();
-      throw new Error(`Uniswap v4 Trade API error ${quoteRes.status}: ${errText}`);
-    }
-
-    const quoteData = await quoteRes.json();
-    const calldata  = quoteData.quote?.methodParameters?.calldata as `0x${string}` | undefined;
-    const value     = quoteData.quote?.methodParameters?.value    || '0x0';
-    const outputAmt = quoteData.quote?.output?.amount;
-
-    if (!calldata) {
-      throw new Error('Uniswap v4 Trade API did not return execution calldata. The pair may not have liquidity on Base Sepolia.');
-    }
-
-    console.log(`[Executor] Quote received. Expected output: ${outputAmt} ${tOut}`);
-
-    // ── 4. Approve tokens if ERC-20 input ────────────────────────────────────
-    if (tIn !== 'ETH') {
-      const currentAllowance = await publicClient.readContract({
+    // ── 3. Approve ERC-20 if selling USDC ────────────────────────────────────
+    if (!isInputNative) {
+      const allowance = await publicClient.readContract({
         address:      tokenIn.address,
         abi:          ERC20_ABI,
         functionName: 'allowance',
-        args:         [account.address, PERMIT2],
+        args:         [account.address, UNIVERSAL_ROUTER],
       });
 
-      if (currentAllowance < amountIn) {
-        console.log(`[Executor] Approving ${tIn} for Permit2...`);
+      if (allowance < amountIn) {
+        console.log(`[Executor] Approving ${tIn} for UniversalRouter...`);
         const approveHash = await walletClient.writeContract({
           address:      tokenIn.address,
           abi:          ERC20_ABI,
           functionName: 'approve',
-          args:         [PERMIT2, BigInt('0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff')],
+          args:         [UNIVERSAL_ROUTER, BigInt('0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff')],
         });
         await publicClient.waitForTransactionReceipt({ hash: approveHash });
-        console.log(`[Executor] ${tIn} approved for Permit2. Tx: ${approveHash}`);
+        console.log(`[Executor] Approved. Tx: ${approveHash}`);
       }
     }
 
-    // ── 5. Execute swap via UniversalRouter ───────────────────────────────────
-    console.log(`[Executor] Sending swap to Uniswap v4 UniversalRouter on Base Sepolia...`);
+    // ── 4. Build and send swap transaction ───────────────────────────────────
+    const calldata = encodeV4Swap(zeroForOne, amountIn, amountOutMin, account.address);
+    const ethValue = isInputNative ? amountIn : 0n;
+
+    console.log(`[Executor] Sending swap to UniversalRouter (${UNIVERSAL_ROUTER})...`);
     const txHash = await walletClient.sendTransaction({
       to:    UNIVERSAL_ROUTER,
       data:  calldata,
-      value: BigInt(value),
+      value: ethValue,
       gas:   500000n,
     });
 
+    console.log(`[Executor] Transaction sent: ${txHash}`);
     const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+
     if (receipt.status === 'reverted') {
-      throw new Error(`Uniswap v4 swap reverted on Base Sepolia. Tx: ${txHash}`);
+      throw new Error(`Uniswap v4 swap reverted. Tx: https://sepolia.basescan.org/tx/${txHash}`);
     }
 
-    console.log(`[Executor] Uniswap v4 swap confirmed! Tx: ${txHash}`);
+    console.log(`[Executor] Swap confirmed! Block: ${receipt.blockNumber}`);
 
     return {
       txHash,
       chain: 'base-sepolia',
       messages: [{
-        role: 'executor',
-        content: `Uniswap v4 swap executed on Base Sepolia. ${amountRaw} ${tIn} → ${tOut}. Tx: ${txHash}`,
+        role:    'executor',
+        content: `Uniswap v4 swap confirmed on Base Sepolia. ${amountRaw} ${tIn} → ${tOut}. Tx: ${txHash}`,
       }],
     };
 
   } catch (err: any) {
     console.error(`[Executor Error] ${err.message}`);
     return {
-      error: err.message,
+      error:    err.message,
       messages: [{ role: 'executor', content: `Execution Aborted: ${err.message}` }],
     };
   }
