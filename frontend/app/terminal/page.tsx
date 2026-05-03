@@ -104,6 +104,7 @@ export default function TerminalPage() {
   const [visitedAgents, setVisitedAgents] = useState<Set<string>>(new Set());
   const [logs, setLogs] = useState<AgentLog[]>([]);
   const [finalTxHash, setFinalTxHash] = useState<string | null>(null);
+  const [finalRootHash, setFinalRootHash] = useState<string | null>(null);
   const [showLogs, setShowLogs] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const esRef = useRef<EventSource | null>(null);
@@ -160,6 +161,7 @@ export default function TerminalPage() {
       try {
         const data = JSON.parse(e.data);
         if (data.txHash) setFinalTxHash(data.txHash);
+        if (data.rootHash) setFinalRootHash(data.rootHash);
       } catch { }
       es.close();
     });
@@ -424,18 +426,31 @@ export default function TerminalPage() {
                     <div>
                       <h4 className="text-sm font-bold text-white mb-0.5">Swarm Execution Successful</h4>
                       <p className="text-[10px] text-zinc-400 mb-2">The requested intent has been settled on-chain.</p>
-                      <a
-                        href={`https://scan-testnet.0g.ai/tx/${finalTxHash}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 rounded-lg text-[10px] font-bold transition-all"
-                      >
-                        <LinkIcon size={12} />
-                        View in Explorer: {finalTxHash.slice(0, 10)}...{finalTxHash.slice(-8)}
-                      </a>
+                      <div className="flex flex-col gap-1.5">
+                        <a
+                          href={`https://chainscan-galileo.0g.ai/tx/${finalTxHash}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 rounded-lg text-[10px] font-bold transition-all"
+                        >
+                          <LinkIcon size={12} />
+                          View on 0G Scan: {finalTxHash.slice(0, 10)}...{finalTxHash.slice(-8)}
+                        </a>
+                        {finalRootHash && (
+                          <a
+                            href={`https://storagescan-newton.0g.ai`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 px-3 py-1.5 bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 rounded-lg text-[10px] font-bold transition-all"
+                          >
+                            <Database size={12} />
+                            0G Storage Hash: {finalRootHash.slice(0, 10)}...{finalRootHash.slice(-8)}
+                          </a>
+                        )}
+                      </div>
                     </div>
                     <button
-                      onClick={() => setFinalTxHash(null)}
+                      onClick={() => { setFinalTxHash(null); setFinalRootHash(null); }}
                       className="ml-2 p-1 hover:bg-white/5 rounded-lg text-zinc-500 transition-colors"
                     >
                       <WarningCircle size={16} />
@@ -444,6 +459,7 @@ export default function TerminalPage() {
                 </motion.div>
               )}
             </AnimatePresence>
+
           </div>
 
           {/* ── Log Drawer ───────────────────────────────────────── */}
@@ -485,13 +501,20 @@ export default function TerminalPage() {
                               <span className={`text-[9px] font-bold uppercase tracking-widest ${cfg.color}`}>{cfg.label}</span>
                             </div>
                             <p className="text-[11px] text-zinc-400 leading-snug group-hover:text-zinc-300 transition-colors break-words">
-                              {log.message}
+                              {log.message.split('\n').map((line, li) => {
+                                const urlMatch = line.match(/(https?:\/\/[^\s]+)/);
+                                if (urlMatch) {
+                                  const [pre, url, post] = [line.slice(0, urlMatch.index), urlMatch[0], line.slice((urlMatch.index ?? 0) + urlMatch[0].length)];
+                                  return <span key={li} className="block">{pre}<a href={url} target="_blank" rel="noreferrer" className="text-indigo-400 hover:text-indigo-200 underline underline-offset-2 break-all">{url}</a>{post}</span>;
+                                }
+                                return <span key={li} className="block">{line}</span>;
+                              })}
                             </p>
                             {log.data?.txHash && (
-                              <a href={`https://scan-testnet.0g.ai/tx/${log.data.txHash}`} target="_blank"
+                              <a href={`https://chainscan-galileo.0g.ai/tx/${log.data.txHash}`} target="_blank"
                                 className="inline-flex items-center gap-1 mt-1 text-[9px] text-indigo-400 hover:text-indigo-300 transition-colors">
                                 <LinkIcon size={9} />
-                                Tx: {log.data.txHash.slice(0, 12)}...{log.data.txHash.slice(-8)}
+                                View on 0G Scan: {log.data.txHash.slice(0, 12)}...{log.data.txHash.slice(-8)}
                               </a>
                             )}
                           </div>

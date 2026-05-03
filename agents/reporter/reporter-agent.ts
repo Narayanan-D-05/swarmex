@@ -58,13 +58,28 @@ export async function runReporter(state: any) {
     console.error(`[Reporter] KeeperHub notification failed: ${notifyErr.message}`);
   }
 
-  const summaryParts = [
-    tradeTxHash ? `Trade Tx: ${tradeTxHash}` : '',
-    rootHash ? `Storage Root: ${rootHash}` : '',
-    registryTxHash ? `Registry Tx: ${registryTxHash}` : ''
-  ].filter(Boolean);
+  const OG_SCAN = 'https://chainscan-galileo.0g.ai/tx';
+  const OG_STORAGE_SCAN = 'https://storagescan-newton.0g.ai';
+
+  const summaryParts: string[] = [];
+
+  if (tradeTxHash) {
+    summaryParts.push(`✅ Trade Tx: ${OG_SCAN}/${tradeTxHash}`);
+  }
+  if (rootHash) {
+    summaryParts.push(`🗄️ 0G Storage Hash: ${rootHash} | View: ${OG_STORAGE_SCAN}`);
+  }
+  if (registryTxHash) {
+    summaryParts.push(`📋 Registry Tx: ${OG_SCAN}/${registryTxHash}`);
+  }
+
+  const summaryContent = summaryParts.length > 0
+    ? summaryParts.join('\n')
+    : success ? 'Trade completed.' : `Reporter completed (no tx hash available). Error: ${state.error || 'none'}`;
 
   return {
-    messages: [{ role: 'reporter', content: summaryParts.join(' | ') || 'Reporter completed.' }]
+    txHash: tradeTxHash,
+    rootHash,
+    messages: [{ role: 'reporter', content: summaryContent }]
   };
 }

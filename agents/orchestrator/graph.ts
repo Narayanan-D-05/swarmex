@@ -26,6 +26,7 @@ const StateAnnotation = Annotation.Root({
   decision: Annotation<string>(),
   executionParams: Annotation<string | null>(),
   txHash: Annotation<string | null>(),
+  rootHash: Annotation<string | null>(),
   error: Annotation<string | null>()
 });
 
