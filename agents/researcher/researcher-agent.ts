@@ -20,8 +20,8 @@ async function fetchOnChainData() {
     });
 
     // Check USDC balance held by the Uniswap v4 PoolManager on Base Sepolia
-    const usdcAddress  = (process.env.SEPOLIA_USDC_ADDRESS || '0x036CbD53842c5426634e7929541eC2318f3dCF7e') as `0x${string}`;
-    const poolManager  = (process.env.POOL_MANAGER_ADDRESS || '0x05E73354cFDd6745C338b50BcFDfA3Aa6fA03408') as `0x${string}`;
+    const usdcAddress  = (process.env.SEPOLIA_USDC_ADDRESS || '0x297e321458471E990c1bA6E4080B2d2553B5cFD9') as `0x${string}`;
+    const poolManager  = (process.env.POOL_MANAGER_ADDRESS || '0x498581ff718922c3f8e6a244956af099b2652b2b') as `0x${string}`;
 
     console.log(`[Researcher:OnChain] Checking depth: USDC=${usdcAddress}, Manager=${poolManager}`);
 

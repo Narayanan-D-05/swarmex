@@ -18,14 +18,14 @@ const baseSepolia = defineChain({
 });
 
 // ── Uniswap v4 contracts on Base Sepolia ─────────────────────────────────────
-const POOL_MANAGER      = (process.env.POOL_MANAGER_ADDRESS      || '0x05E73354cFDd6745C338b50BcFDfA3Aa6fA03408') as `0x${string}`;
+const POOL_MANAGER      = (process.env.POOL_MANAGER_ADDRESS      || '0x498581ff718922c3f8e6a244956af099b2652b2b') as `0x${string}`;
 const UNIVERSAL_ROUTER  = (process.env.UNIVERSAL_ROUTER_ADDRESS   || '0x492e6456d9528771018deb9e87ef7750ef184104') as `0x${string}`;
 const POSITION_MANAGER  = '0x7C5f5A4bBd8fD63184577525326123B519429bDc' as `0x${string}`;
 
 // ── Token addresses on Base Sepolia ──────────────────────────────────────────
 const NATIVE_ETH  = '0x0000000000000000000000000000000000000000' as `0x${string}`;
 const WETH_ADDR   = '0x4200000000000000000000000000000000000006' as `0x${string}`;
-const USDC_ADDR   = (process.env.SEPOLIA_USDC_ADDRESS || '0x036CbD53842c5426634e7929541eC2318f3dCF7e') as `0x${string}`;
+const USDC_ADDR   = (process.env.SEPOLIA_USDC_ADDRESS || '0x297e321458471E990c1bA6E4080B2d2553B5cFD9') as `0x${string}`;
 
 const SEPOLIA_TOKENS: Record<string, { address: `0x${string}`; decimals: number }> = {
   ETH:  { address: NATIVE_ETH, decimals: 18 },
