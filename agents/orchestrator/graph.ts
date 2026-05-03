@@ -25,9 +25,11 @@ const StateAnnotation = Annotation.Root({
   currentAgent: Annotation<string>(),
   decision: Annotation<string>(),
   executionParams: Annotation<string | null>(),
-  txHash: Annotation<string | null>(),
-  rootHash: Annotation<string | null>(),
-  error: Annotation<string | null>()
+  txHash:         Annotation<string | null>(),
+  rootHash:       Annotation<string | null>(),
+  registryTxHash: Annotation<string | null>(),
+  chain:          Annotation<string | null>(),
+  error:          Annotation<string | null>()
 });
 
 export const swarmGraph = new StateGraph(StateAnnotation)

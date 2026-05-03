@@ -1,80 +1,79 @@
 import { runInference } from '../shared/0g-compute-client';
 import { createPublicClient, http, parseAbi, defineChain } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
 
-const ogTestnet = defineChain({
-  id: 16602,
-  name: '0G Testnet',
-  nativeCurrency: { name: '0G', symbol: 'A0GI', decimals: 18 },
+// Base Sepolia — where Uniswap v4 is actually deployed
+const baseSepolia = defineChain({
+  id: 84532,
+  name: 'Base Sepolia',
+  nativeCurrency: { name: 'Ethereum', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
-    default: { http: [process.env.OG_CHAIN_RPC || 'https://evmrpc-testnet.0g.ai'] },
+    default: { http: [process.env.BASE_SEPOLIA_RPC || 'https://sepolia.base.org'] },
   },
 });
 
 async function fetchOnChainData() {
   try {
     const publicClient = createPublicClient({
-      chain: ogTestnet,
+      chain: baseSepolia,
       transport: http()
     });
-    
-    const usdcAddress = process.env.USDC_ADDRESS as `0x${string}`;
-    const poolManager = process.env.POOL_MANAGER_ADDRESS_OG as `0x${string}`;
-    
-    if (!usdcAddress || !poolManager) {
-       console.warn("[Researcher:OnChain] Missing USDC or PoolManager address in .env");
-       return null;
-    }
 
-    console.log(`[Researcher:OnChain] Checking liquidity for USDC (${usdcAddress}) in PoolManager (${poolManager})...`);
+    // Check USDC balance held by the Uniswap v4 PoolManager on Base Sepolia
+    const usdcAddress  = (process.env.SEPOLIA_USDC_ADDRESS || '0x036CbD53842c5426634e7929541eC2318f3dCF7e') as `0x${string}`;
+    const poolManager  = (process.env.POOL_MANAGER_ADDRESS || '0x05E73354cFDd6745C338b50BcFDfA3Aa6fA03408') as `0x${string}`;
+
+    console.log(`[Researcher:OnChain] Checking Uniswap v4 PoolManager USDC depth on Base Sepolia...`);
 
     const balanceAbi = parseAbi(['function balanceOf(address) view returns (uint256)']);
-    
     const balance = await publicClient.readContract({
-      address: usdcAddress,
-      abi: balanceAbi,
+      address:      usdcAddress,
+      abi:          balanceAbi,
       functionName: 'balanceOf',
-      args: [poolManager]
+      args:         [poolManager],
     });
-    
-    console.log(`[Researcher:OnChain] PoolManager balance: ${balance.toString()} USDC`);
+
+    console.log(`[Researcher:OnChain] PoolManager USDC balance: ${balance.toString()}`);
 
     return {
       poolDepthUsdc: balance.toString(),
-      hasLiquidity: balance > 0n
+      hasLiquidity:  balance > 0n,
     };
   } catch(e: any) {
     console.warn(`[Researcher:OnChain] fetch failed: ${e.message}`);
-    return null; // Don't hallucinate. If it fails, return null.
+    return null;
   }
 }
 
 async function fetchOffChainData(parsedIntent: any) {
   try {
     const { tokenIn, tokenOut, amount } = parsedIntent;
-    
-    let tokenInAddr = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
-    let tokenOutAddr = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2';
-    let decimalsIn = 6;
-    
-    if (tokenIn.toUpperCase() === 'ETH' || tokenIn.toUpperCase() === 'WETH') {
-      tokenInAddr = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2';
-      decimalsIn = 18;
-    }
-    if (tokenOut.toUpperCase() === 'USDC') {
-      tokenOutAddr = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
-    }
 
-    const amountBase = BigInt(Math.floor(parseFloat(amount) * (10 ** decimalsIn))).toString();
-    const account = process.env.USER_PRIVATE_KEY 
-      ? privateKeyToAccount(process.env.USER_PRIVATE_KEY as `0x${string}`) 
-      : null;
-    const swapper = account ? account.address : '0x0000000000000000000000000000000000000001'; 
-    
+    // Token addresses on Base Sepolia for Uniswap v4 Trade API
+    const TOKENS: Record<string, { address: string; decimals: number }> = {
+      USDC: { address: '0x036CbD53842c5426634e7929541eC2318f3dCF7e', decimals: 6 },
+      WETH: { address: '0x4200000000000000000000000000000000000006', decimals: 18 },
+      ETH:  { address: '0x4200000000000000000000000000000000000006', decimals: 18 },
+    };
+
+    const tIn  = tokenIn.toUpperCase();
+    const tOut = (tokenOut || 'ETH').toUpperCase();
+    const tokenInInfo  = TOKENS[tIn]  || TOKENS['USDC'];
+    const tokenOutInfo = TOKENS[tOut] || TOKENS['ETH'];
+
+    const amountBase = BigInt(Math.floor(parseFloat(amount) * (10 ** tokenInInfo.decimals))).toString();
+
+    const swapper = process.env.USER_PRIVATE_KEY
+      ? '0x0000000000000000000000000000000000000001'
+      : '0x0000000000000000000000000000000000000001';
+
     const quotePayload = {
-      tokenInChainId: 1, tokenIn: tokenInAddr,
-      tokenOutChainId: 1, tokenOut: tokenOutAddr,
-      amount: amountBase, type: "EXACT_INPUT", swapper
+      tokenInChainId:  84532,
+      tokenIn:         tokenInInfo.address,
+      tokenOutChainId: 84532,
+      tokenOut:        tokenOutInfo.address,
+      amount:          amountBase,
+      type:            'EXACT_INPUT',
+      swapper,
     };
 
     console.log(`[Researcher:OffChain] Fetching quote from Uniswap API...`);

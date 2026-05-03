@@ -103,8 +103,10 @@ export default function TerminalPage() {
   const [activeAgent, setActiveAgent] = useState<string | null>(null);
   const [visitedAgents, setVisitedAgents] = useState<Set<string>>(new Set());
   const [logs, setLogs] = useState<AgentLog[]>([]);
-  const [finalTxHash, setFinalTxHash] = useState<string | null>(null);
-  const [finalRootHash, setFinalRootHash] = useState<string | null>(null);
+  const [finalTxHash, setFinalTxHash]             = useState<string | null>(null);
+  const [finalRootHash, setFinalRootHash]         = useState<string | null>(null);
+  const [finalRegistryTxHash, setFinalRegistryTxHash] = useState<string | null>(null);
+  const [finalChain, setFinalChain]               = useState<string>('base-sepolia');
   const [showLogs, setShowLogs] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const esRef = useRef<EventSource | null>(null);
@@ -160,8 +162,10 @@ export default function TerminalPage() {
       setActiveAgent(null);
       try {
         const data = JSON.parse(e.data);
-        if (data.txHash) setFinalTxHash(data.txHash);
-        if (data.rootHash) setFinalRootHash(data.rootHash);
+        if (data.txHash)         setFinalTxHash(data.txHash);
+        if (data.rootHash)       setFinalRootHash(data.rootHash);
+        if (data.registryTxHash) setFinalRegistryTxHash(data.registryTxHash);
+        if (data.chain)          setFinalChain(data.chain || 'base-sepolia');
       } catch { }
       es.close();
     });
@@ -410,7 +414,7 @@ export default function TerminalPage() {
               })}
             </svg>
 
-            {/* Success Banner */}
+            {/* Success Banner — 3 verifiable links */}
             <AnimatePresence>
               {finalTxHash && (
                 <motion.div
@@ -419,23 +423,25 @@ export default function TerminalPage() {
                   exit={{ opacity: 0, y: 20, scale: 0.95 }}
                   className="absolute bottom-10 left-1/2 -translate-x-1/2 z-50"
                 >
-                  <div className="bg-emerald-500/10 border border-emerald-500/20 backdrop-blur-xl px-6 py-4 rounded-2xl flex items-center gap-4 shadow-2xl shadow-emerald-500/10">
-                    <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-500">
+                  <div className="bg-emerald-500/10 border border-emerald-500/20 backdrop-blur-xl px-6 py-4 rounded-2xl flex items-start gap-4 shadow-2xl shadow-emerald-500/10">
+                    <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-500 shrink-0 mt-1">
                       <CheckCircle size={24} weight="fill" />
                     </div>
                     <div>
                       <h4 className="text-sm font-bold text-white mb-0.5">Swarm Execution Successful</h4>
-                      <p className="text-[10px] text-zinc-400 mb-2">The requested intent has been settled on-chain.</p>
-                      <div className="flex flex-col gap-1.5">
+                      <p className="text-[10px] text-zinc-400 mb-3">Trade settled on Uniswap v4. Execution archived to 0G.</p>
+                      <div className="flex flex-col gap-2">
+                        {/* Link 1: Uniswap v4 swap on Base Sepolia */}
                         <a
-                          href={`https://chainscan-galileo.0g.ai/tx/${finalTxHash}`}
+                          href={`https://sepolia.basescan.org/tx/${finalTxHash}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 rounded-lg text-[10px] font-bold transition-all"
                         >
-                          <LinkIcon size={12} />
-                          View on 0G Scan: {finalTxHash.slice(0, 10)}...{finalTxHash.slice(-8)}
+                          <Lightning size={12} />
+                          Uniswap v4 Swap (Base Sepolia): {finalTxHash.slice(0, 10)}...{finalTxHash.slice(-8)}
                         </a>
+                        {/* Link 2: 0G Storage proof */}
                         {finalRootHash && (
                           <a
                             href={`https://storagescan-newton.0g.ai`}
@@ -444,14 +450,26 @@ export default function TerminalPage() {
                             className="inline-flex items-center gap-2 px-3 py-1.5 bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 rounded-lg text-[10px] font-bold transition-all"
                           >
                             <Database size={12} />
-                            0G Storage Hash: {finalRootHash.slice(0, 10)}...{finalRootHash.slice(-8)}
+                            0G Storage Proof: {finalRootHash.slice(0, 10)}...{finalRootHash.slice(-8)}
+                          </a>
+                        )}
+                        {/* Link 3: 0G Agent Registry update */}
+                        {finalRegistryTxHash && (
+                          <a
+                            href={`https://chainscan-galileo.0g.ai/tx/${finalRegistryTxHash}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-400 rounded-lg text-[10px] font-bold transition-all"
+                          >
+                            <ShieldCheck size={12} />
+                            0G Agent Registry: {finalRegistryTxHash.slice(0, 10)}...{finalRegistryTxHash.slice(-8)}
                           </a>
                         )}
                       </div>
                     </div>
                     <button
-                      onClick={() => { setFinalTxHash(null); setFinalRootHash(null); }}
-                      className="ml-2 p-1 hover:bg-white/5 rounded-lg text-zinc-500 transition-colors"
+                      onClick={() => { setFinalTxHash(null); setFinalRootHash(null); setFinalRegistryTxHash(null); }}
+                      className="ml-2 p-1 hover:bg-white/5 rounded-lg text-zinc-500 transition-colors shrink-0"
                     >
                       <WarningCircle size={16} />
                     </button>
