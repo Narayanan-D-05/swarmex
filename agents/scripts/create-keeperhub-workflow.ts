@@ -14,6 +14,7 @@ const API_KEY = process.env.KEEPERHUB_API!;
 const BASE_URL = "https://app.keeperhub.com/api";
 const WORKFLOW_ID = "6k8kkgb8v5gqh7gquriql";
 const DISCORD_INTEGRATION_ID = "libp44j88ukrimww72zac"; // Created earlier
+const DISCORD_CHANNEL_ID = "1499859318776926410"; // SwarmEx Main Channel
 const RENDER_URL = "https://swarmex.onrender.com";
 
 const headers = {
