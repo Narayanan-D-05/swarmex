@@ -68,7 +68,6 @@ async function fetchOffChainData(parsedIntent: any) {
       : null;
     const swapper = account ? account.address : '0x0000000000000000000000000000000000000001';
 
-    const quotePayload = {
     // For price discovery, use Ethereum Mainnet (chainId 1) — testnet has no indexed liquidity.
     // The actual swap execution happens on Base Sepolia separately in executor-agent.ts.
     const MAINNET_TOKENS: Record<string, { address: string; decimals: number }> = {

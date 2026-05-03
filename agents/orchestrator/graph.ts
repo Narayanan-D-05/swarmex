@@ -44,8 +44,14 @@ export const swarmGraph = new StateGraph(StateAnnotation)
     if (state.error) return END;
     return "researcher";
   })
-  .addEdge("researcher", "RiskAgent")
-  .addEdge("RiskAgent", "orchestrator")
+  .addConditionalEdges("researcher", (state) => {
+    if (state.error || state.marketIntelligence?.error) return END;
+    return "RiskAgent";
+  })
+  .addConditionalEdges("RiskAgent", (state) => {
+    if (state.error) return END;
+    return "orchestrator";
+  })
   .addConditionalEdges("orchestrator", (state) => {
     if (state.error) return END; // Includes abort decision
     if (state.decision === 'execute') return "executor";
