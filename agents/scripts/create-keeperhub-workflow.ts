@@ -141,8 +141,8 @@ async function main() {
             httpMethod: "POST",
             httpHeaders: JSON.stringify({ "Content-Type": "application/json" }),
             httpBody: JSON.stringify({ 
-              intent: "{{@discord-trigger:Discord Command Trigger.message}}",
-              sessionId: "discord-{{@discord-trigger:Discord Command Trigger.authorId}}"
+              intent: "{{@discord-trigger:Discord Command Trigger.content}}",
+              sessionId: "discord-{{@discord-trigger:Discord Command Trigger.author_id}}"
             }),
           },
           status: "idle",
@@ -161,7 +161,7 @@ async function main() {
           config: {
             actionType: "discord/send-message",
             integrationId: DISCORD_INTEGRATION_ID,
-            discordMessage: "🚀 **SwarmEx Session Started**\nAnalyzing intent: `{{@discord-trigger:Discord Command Trigger.message}}`"
+            discordMessage: "🚀 **SwarmEx Session Started**\nAnalyzing intent: `{{@discord-trigger:Discord Command Trigger.content}}`"
           },
           status: "idle",
         },

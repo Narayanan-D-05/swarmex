@@ -8,7 +8,7 @@ const baseSepolia = defineChain({
   name: 'Base Sepolia',
   nativeCurrency: { name: 'Ethereum', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
-    default: { http: [process.env.BASE_SEPOLIA_RPC || 'https://sepolia.base.org'] },
+    default: { http: [process.env.BASE_SEPOLIA_RPC || 'https://sepolia.base.org', 'https://base-sepolia-rpc.publicnode.com'] },
   },
 });
 
