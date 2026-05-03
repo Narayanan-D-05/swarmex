@@ -30,7 +30,7 @@ export default {
   networks: {
     base_sepolia: {
       url: "https://sepolia.base.org",
-      accounts: [process.env.AGENT_PRIVATE_KEY]
+      accounts: [process.env.USER_PRIVATE_KEY]
     },
     og_testnet: {
       url: "https://evmrpc-testnet.0g.ai",
