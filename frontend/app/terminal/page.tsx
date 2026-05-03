@@ -105,7 +105,9 @@ export default function TerminalPage() {
   const [logs, setLogs] = useState<AgentLog[]>([]);
   const [finalTxHash, setFinalTxHash]             = useState<string | null>(null);
   const [finalRootHash, setFinalRootHash]         = useState<string | null>(null);
+  const [finalStorageTxHash, setFinalStorageTxHash] = useState<string | null>(null);
   const [finalRegistryTxHash, setFinalRegistryTxHash] = useState<string | null>(null);
+  const [finalComputeResult, setFinalComputeResult]   = useState<string | null>(null);
   const [finalChain, setFinalChain]               = useState<string>('base-sepolia');
   const [showLogs, setShowLogs] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -129,6 +131,10 @@ export default function TerminalPage() {
     setLogs([]);
     setVisitedAgents(new Set());
     setFinalTxHash(null);
+    setFinalRootHash(null);
+    setFinalStorageTxHash(null);
+    setFinalRegistryTxHash(null);
+    setFinalComputeResult(null);
     setIsRunning(true);
     setActiveAgent('intentParser');
 
@@ -164,7 +170,9 @@ export default function TerminalPage() {
         const data = JSON.parse(e.data);
         if (data.txHash)         setFinalTxHash(data.txHash);
         if (data.rootHash)       setFinalRootHash(data.rootHash);
+        if (data.storageTxHash)   setFinalStorageTxHash(data.storageTxHash);
         if (data.registryTxHash) setFinalRegistryTxHash(data.registryTxHash);
+        if (data.parsedIntent)   setFinalComputeResult(JSON.stringify(data.parsedIntent));
         if (data.chain)          setFinalChain(data.chain || 'base-sepolia');
       } catch { }
       es.close();
@@ -441,10 +449,11 @@ export default function TerminalPage() {
                           <Lightning size={12} />
                           Uniswap v4 Swap (Base Sepolia): {finalTxHash.slice(0, 10)}...{finalTxHash.slice(-8)}
                         </a>
-                        {/* Link 2: 0G Storage proof */}
+                        
+                        {/* Link 2: 0G Storage proof (Deep Link preferred) */}
                         {finalRootHash && (
                           <a
-                            href={`https://storagescan-newton.0g.ai`}
+                            href={finalStorageTxHash ? `https://chainscan-galileo.0g.ai/tx/${finalStorageTxHash}` : `https://storagescan-galileo.0g.ai`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-2 px-3 py-1.5 bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 rounded-lg text-[10px] font-bold transition-all"
@@ -453,7 +462,26 @@ export default function TerminalPage() {
                             0G Storage Proof: {finalRootHash.slice(0, 10)}...{finalRootHash.slice(-8)}
                           </a>
                         )}
-                        {/* Link 3: 0G Agent Registry update */}
+
+                        {/* Link 3: 0G Compute Inference */}
+                        {finalComputeResult && (
+                          <div className="flex flex-col gap-1">
+                            <div className="px-3 py-1.5 bg-sky-500/10 border border-sky-500/20 text-sky-400 rounded-lg text-[10px] font-bold flex items-center gap-2">
+                               <Robot size={12} />
+                               0G Compute: {finalComputeResult.slice(0, 40)}{finalComputeResult.length > 40 ? '...' : ''}
+                            </div>
+                            <a
+                              href={`https://chainscan-galileo.0g.ai/address/${process.env.NEXT_PUBLIC_OG_COMPUTE_PROVIDER || '0xa48f01287233509FD694a22Bf840225062E67836'}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[9px] text-sky-500/60 hover:text-sky-400 ml-1 transition-colors underline underline-offset-2"
+                            >
+                              View Compute Provider on Explorer →
+                            </a>
+                          </div>
+                        )}
+
+                        {/* Link 4: 0G Agent Registry update */}
                         {finalRegistryTxHash && (
                           <a
                             href={`https://chainscan-galileo.0g.ai/tx/${finalRegistryTxHash}`}
@@ -468,7 +496,11 @@ export default function TerminalPage() {
                       </div>
                     </div>
                     <button
-                      onClick={() => { setFinalTxHash(null); setFinalRootHash(null); setFinalRegistryTxHash(null); }}
+                      onClick={() => { 
+                        setFinalTxHash(null); setFinalRootHash(null); 
+                        setFinalStorageTxHash(null); setFinalRegistryTxHash(null); 
+                        setFinalComputeResult(null);
+                      }}
                       className="ml-2 p-1 hover:bg-white/5 rounded-lg text-zinc-500 transition-colors shrink-0"
                     >
                       <WarningCircle size={16} />
