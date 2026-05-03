@@ -14,7 +14,6 @@ const API_KEY = process.env.KEEPERHUB_API!;
 const BASE_URL = "https://app.keeperhub.com/api";
 const WORKFLOW_ID = "6k8kkgb8v5gqh7gquriql";
 const DISCORD_INTEGRATION_ID = "libp44j88ukrimww72zac"; // Created earlier
-const DISCORD_CHANNEL_ID = "1499859318776926410"; // SwarmEx Main Channel
 const RENDER_URL = "https://swarmex.onrender.com";
 
 const headers = {
@@ -111,18 +110,16 @@ async function main() {
         position: { x: 400, y: 380 },
       },
 
-      // ── Node 5: Discord Trigger (receives messages from Discord channel) ──
       {
-        id: "discord_trigger",
+        id: "discord-trigger",
         type: "trigger",
         data: {
           type: "trigger",
-          label: "discord_trigger",
+          label: "Discord Intent Trigger",
           description: "Listens for messages in the SwarmEx Discord channel",
           config: {
             triggerType: "discord/on-message",
-            integrationId: DISCORD_INTEGRATION_ID,
-            channelId: DISCORD_CHANNEL_ID
+            integrationId: DISCORD_INTEGRATION_ID
           },
           status: "active",
         },
@@ -143,8 +140,8 @@ async function main() {
             httpMethod: "POST",
             httpHeaders: JSON.stringify({ "Content-Type": "application/json" }),
             httpBody: JSON.stringify({ 
-              intent: "{{@trigger:content || @trigger:message.content || @trigger:payload.content}}",
-              sessionId: "discord-{{@trigger:author_id}}"
+              intent: "{{@trigger:content || @trigger:message}}",
+              sessionId: "discord-{{@trigger:author_id || @trigger:authorId}}"
             }),
           },
           status: "idle",
@@ -163,7 +160,7 @@ async function main() {
           config: {
             actionType: "discord/send-message",
             integrationId: DISCORD_INTEGRATION_ID,
-            discordMessage: "🚀 **SwarmEx Session Started**\nAnalyzing: `{{@trigger:content || @trigger:message.content}}`"
+            discordMessage: "🚀 **SwarmEx Session Started**\nAnalyzing: `{{@trigger:content || @trigger:message}}`"
           },
           status: "idle",
         },
