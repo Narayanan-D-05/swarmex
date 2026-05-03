@@ -170,12 +170,12 @@ export async function runExecutor(state: any) {
     const effectiveSlippage = isTestnet ? 0.95 : slippagePct;
     const slippageBps = BigInt(Math.floor(effectiveSlippage * 10000));
     
-    const amountOutMin = expectedOut > 0n 
+    const amountOutMin = isTestnet ? 0n : (expectedOut > 0n 
       ? (expectedOut * (10000n - slippageBps)) / 10000n
-      : 0n;
+      : 0n);
 
     console.log(`[Executor] Debug: expectedOut=${expectedOut.toString()}, slippageBps=${slippageBps.toString()}, amountOutMin=${amountOutMin.toString()}`);
-    console.log(`[Executor] Slippage Protection: MinOut=${amountOutMin.toString()} (Buffer: ${effectiveSlippage * 100}%)`);
+    console.log(`[Executor] Slippage Protection: FORCED TO 0 FOR TESTNET SUCCESS`);
 
     // ── 3. Approve ERC-20 if selling USDC ────────────────────────────────────
     if (!isInputNative) {

@@ -112,11 +112,11 @@ async function main() {
 
       // ── Node 5: Discord Trigger (receives messages from Discord channel) ──
       {
-        id: "discord-trigger",
+        id: "discord_trigger",
         type: "trigger",
         data: {
           type: "trigger",
-          label: "DiscordCommandTrigger",
+          label: "discord_trigger",
           description: "Listens for messages in the SwarmEx Discord channel",
           config: {
             triggerType: "discord/on-message",
@@ -141,8 +141,8 @@ async function main() {
             httpMethod: "POST",
             httpHeaders: JSON.stringify({ "Content-Type": "application/json" }),
             httpBody: JSON.stringify({ 
-              intent: "{{@trigger:content || @discord-trigger:DiscordCommandTrigger.content || @trigger:message.content}}",
-              sessionId: "discord-{{@trigger:author_id || @discord-trigger:DiscordCommandTrigger.author_id}}"
+              intent: "{{@trigger:content || @trigger:message.content || @trigger:payload.content || @trigger:text}}",
+              sessionId: "discord-{{@trigger:author_id || @discord_trigger:discord_trigger.author_id}}"
             }),
           },
           status: "idle",
@@ -161,7 +161,7 @@ async function main() {
           config: {
             actionType: "discord/send-message",
             integrationId: DISCORD_INTEGRATION_ID,
-            discordMessage: "🚀 **SwarmEx Session Started**\nAnalyzing: `c={{@discord-trigger:DiscordCommandTrigger.content}}` | `m={{@discord-trigger:DiscordCommandTrigger.message}}` | `t={{@discord-trigger:DiscordCommandTrigger.text}}`"
+            discordMessage: "🚀 **SwarmEx Session Started**\nAnalyzing: c={{@trigger:content}} | m={{@trigger:message.content}} | p={{@trigger:payload.content}} | t={{@trigger:text}}"
           },
           status: "idle",
         },
