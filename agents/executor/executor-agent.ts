@@ -153,8 +153,20 @@ export async function runExecutor(state: any) {
     const isOutputNative = (tOut === 'ETH' || tOut === 'WETH');
     const zeroForOne     = isInputNative; // currency0 (ETH) → currency1 (USDC)
 
-    // Minimum output with slippage applied (5% buffer on testnet for price movement)
-    const amountOutMin = 0n; // On testnet, use 0 to avoid reverts from stale pricing
+    // ── 2.5 Calculate real-world slippage protection ────────────────────────
+    // Use the research data from state.marketIntelligence
+    const quote = state.marketIntelligence?.apiQuote?.quoteData;
+    const expectedOut = quote ? BigInt(quote.output.amount) : 0n;
+    
+    // Apply slippagePct from intent (e.g. 1% = 0.01)
+    // Formula: minOut = expectedOut * (1 - slippagePct)
+    // In BigInt: minOut = (expectedOut * BigInt(10000 - Math.floor(slippagePct * 10000))) / 10000n
+    const slippageBps = BigInt(Math.floor(slippagePct * 10000));
+    const amountOutMin = expectedOut > 0n 
+      ? (expectedOut * (10000n - slippageBps)) / 10000n
+      : 0n;
+
+    console.log(`[Executor] Real-world slippage protection: MinOut=${amountOutMin.toString()} (Slippage: ${slippagePct * 100}%)`);
 
     // ── 3. Approve ERC-20 if selling USDC ────────────────────────────────────
     if (!isInputNative) {

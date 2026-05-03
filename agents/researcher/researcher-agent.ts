@@ -63,10 +63,11 @@ async function fetchOffChainData(parsedIntent: any) {
 
     const amountBase = BigInt(Math.floor(parseFloat(amount) * (10 ** tokenInInfo.decimals))).toString();
 
-    const account = process.env.USER_PRIVATE_KEY 
-      ? privateKeyToAccount(process.env.USER_PRIVATE_KEY as `0x${string}`)
-      : null;
-    const swapper = account ? account.address : '0x0000000000000000000000000000000000000001';
+    if (!process.env.USER_PRIVATE_KEY) {
+      throw new Error("Missing USER_PRIVATE_KEY. Cannot perform real-world swapper quote discovery.");
+    }
+    const account = privateKeyToAccount(process.env.USER_PRIVATE_KEY as `0x${string}`);
+    const swapper = account.address;
 
     // For price discovery, use Ethereum Mainnet (chainId 1) — testnet has no indexed liquidity.
     // The actual swap execution happens on Base Sepolia separately in executor-agent.ts.
