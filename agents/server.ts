@@ -51,9 +51,9 @@ app.get('/stream/:sessionId', (req, res) => {
 
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
-    'Cache-Control': 'no-cache',
+    'Cache-Control': 'no-cache, no-transform',
     'Connection': 'keep-alive',
-    'Access-Control-Allow-Origin': 'http://localhost:3000',
+    'X-Accel-Buffering': 'no', // Critical for Render/Nginx SSE
   });
   
   // 1. Send connection ack
