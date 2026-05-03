@@ -207,7 +207,7 @@ export async function runExecutor(state: any) {
       to:    UNIVERSAL_ROUTER,
       data:  calldata,
       value: ethValue,
-      gas:   500000n,
+      gas:   800000n,
     });
 
     console.log(`[Executor] Transaction sent: ${txHash}`);
