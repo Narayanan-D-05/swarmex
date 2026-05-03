@@ -77,8 +77,11 @@ app.get('/stream/:sessionId', (req, res) => {
 });
 
 app.post('/orchestrator/run', async (req, res) => {
+  console.log(`[Server] /orchestrator/run received!`);
+  console.log(`[Headers]`, JSON.stringify(req.headers, null, 2));
+  console.log(`[Body]`, JSON.stringify(req.body, null, 2));
+
   // Handle both flat body and KeeperHub nested body
-  console.log(`[Server] /orchestrator/run received:`, JSON.stringify(req.body, null, 2));
   const body = req.body.body || req.body;
   const sessionId = body.sessionId || randomUUID();
   const intent = body.intent || body.message;
