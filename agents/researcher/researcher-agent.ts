@@ -16,7 +16,7 @@ async function fetchOnChainData() {
   try {
     const publicClient = createPublicClient({
       chain: baseSepolia,
-      transport: http()
+      transport: http(undefined, { timeout: 15000 })
     });
 
     // Check USDC balance held by the Uniswap v4 PoolManager on Base Sepolia
@@ -92,14 +92,19 @@ async function fetchOffChainData(parsedIntent: any) {
     };
 
     console.log(`[Researcher:OffChain] Fetching price quote from Uniswap API (Mainnet pricing)...`);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
+
     const res = await fetch('https://trade-api.gateway.uniswap.org/v1/quote', {
       method: 'POST',
       headers: {
         'x-api-key': process.env.UNISWAP_API_KEY || '',
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(quotePayload)
+      body: JSON.stringify(quotePayload),
+      signal: controller.signal
     });
+    clearTimeout(timeoutId);
 
     if (!res.ok) {
       throw new Error(`API Error: ${res.status}`);

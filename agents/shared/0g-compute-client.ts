@@ -40,11 +40,16 @@ export async function runInference(
       const requestBody = JSON.stringify({ model, messages, stream: false });
       const authHeaders = await b.inference.getRequestHeaders(providerAddress, requestBody);
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 45000);
+
       const response = await fetch(`${endpoint}/chat/completions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders },
         body: requestBody,
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         if (response.status === 429) throw new Error('0G Compute: rate limited (429)');

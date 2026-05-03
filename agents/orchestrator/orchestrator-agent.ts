@@ -75,9 +75,17 @@ Output EXACTLY "DECISION: execute" followed by parameters, or "DECISION: abort" 
       params = JSON.stringify(execParams);
     } else if (resUpper.includes('DECISION: ABORT')) {
       decision = 'abort';
-      return { decision, error: res };
+      return { 
+        decision, 
+        error: res,
+        messages: [{ role: 'orchestrator', content: `Decision: ABORT. Reason: ${res}` }]
+      };
     } else {
-      return { decision: 'error', error: "LLM failed to output a valid execution decision." };
+      return { 
+        decision: 'error', 
+        error: "LLM failed to output a valid execution decision.",
+        messages: [{ role: 'orchestrator', content: "Error: Decision Engine returned invalid format." }]
+      };
     }
 
     return {

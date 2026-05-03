@@ -53,9 +53,9 @@ export const swarmGraph = new StateGraph(StateAnnotation)
     return "orchestrator";
   })
   .addConditionalEdges("orchestrator", (state) => {
-    if (state.error) return END; // Includes abort decision
+    if (state.error || state.decision === 'abort' || state.decision === 'error') return "reporter";
     if (state.decision === 'execute') return "executor";
-    return END; 
+    return "reporter"; 
   })
   .addEdge("executor", "reporter")
   .addEdge("reporter", END);
