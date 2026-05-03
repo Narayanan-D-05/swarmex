@@ -4,7 +4,7 @@ import { ReactLenis } from "@studio-freight/react-lenis"
 import type { ReactNode } from "react"
 
 interface LenisProviderProps {
-  children: ReactNode
+  children: any
 }
 
 export function LenisProvider({ children }: LenisProviderProps) {
