@@ -174,6 +174,7 @@ export async function runExecutor(state: any) {
       ? (expectedOut * (10000n - slippageBps)) / 10000n
       : 0n;
 
+    console.log(`[Executor] Debug: expectedOut=${expectedOut.toString()}, slippageBps=${slippageBps.toString()}, amountOutMin=${amountOutMin.toString()}`);
     console.log(`[Executor] Slippage Protection: MinOut=${amountOutMin.toString()} (Buffer: ${effectiveSlippage * 100}%)`);
 
     // ── 3. Approve ERC-20 if selling USDC ────────────────────────────────────
