@@ -27,6 +27,7 @@ async function fetchOnChainData() {
       throw new Error("Missing contract configuration: SEPOLIA_USDC_ADDRESS or POOL_MANAGER_ADDRESS");
     }
 
+    console.log(`[Researcher:OnChain] RPC: ${process.env.BASE_SEPOLIA_RPC || 'default'}`);
     console.log(`[Researcher:OnChain] Checking depth: USDC=${usdcAddress}, Manager=${poolManager}`);
 
     const balanceAbi = parseAbi(['function balanceOf(address) view returns (uint256)']);
