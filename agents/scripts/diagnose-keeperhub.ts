@@ -12,7 +12,7 @@ dotenv.config({ path: path.join(__dirname, '../../.env') });
 const API_KEY = process.env.KEEPERHUB_API!;
 const BASE_URL = "https://app.keeperhub.com/api";
 const WORKFLOW_ID = "6k8kkgb8v5gqh7gquriql";
-const DISCORD_WEBHOOK = "https://discord.com/api/webhooks/1499859318776926410/SOsuh7YvCMzOSgQa0hv8QNTyKR4M6yEL8J6LMv8PKpqoihAWLLd0cdFtJFQLKz00s49T";
+const DISCORD_WEBHOOK = process.env.DISCORD_WEBHOOK_URL || "";
 
 const headers = {
   "Content-Type": "application/json",
@@ -69,24 +69,23 @@ async function main() {
   const execRes = await api("POST", `/workflow/${WORKFLOW_ID}/execute`, {});
   console.log("Execute response:", JSON.stringify(execRes.data, null, 2));
 
-  // Regardless of workflow state, test Discord directly one more time
-  console.log("\n\n✅ Testing Discord directly (this ALWAYS works)...");
-  const r = await fetch(DISCORD_WEBHOOK, {
+  // Regardless of workflow state, test KeeperHub Webhook directly
+  console.log("\n\n✅ Testing KeeperHub Webhook Trigger...");
+  const webhookUrl = process.env.KEEPERHUB_WEBHOOK_TRIGGER_URL || `${BASE_URL}/workflows/${WORKFLOW_ID}/webhook`;
+  const r = await fetch(webhookUrl, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { 
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${API_KEY}`
+    },
     body: JSON.stringify({
-      embeds: [{
-        title: "🤖 SwarmEx 0G Trade Report",
-        color: 0x00ff88,
-        description: "✅ **Trade Executed Successfully!**\n\n🔗 **Tx:** `0x1234...abcd`\n📦 **Root:** `0xabcd...1234`",
-        footer: { text: "SwarmEx Autonomous Agent • 0G Galileo Testnet" },
-        timestamp: new Date().toISOString(),
-      }]
+      type: "diagnostic_test",
+      message: "🤖 **SwarmEx Diagnostic Test**\nKeeperHub Webhook is working correctly!"
     }),
   });
-  console.log(`Discord direct status: ${r.status}`);
-  if (r.status === 204) {
-    console.log("✅ Check your Discord RIGHT NOW — you should see a rich embed message!");
+  console.log(`KeeperHub webhook status: ${r.status}`);
+  if (r.ok) {
+    console.log("✅ KeeperHub Webhook Triggered! Check your Discord if you have a Discord node configured.");
   }
 }
 

@@ -1,32 +1,40 @@
-import { fetchCredentials } from "./credential-helper";
-
 const KEEPERHUB_API_BASE = "https://app.keeperhub.com/api";
 const WORKFLOW_ID = process.env.KEEPERHUB_WORKFLOW_ID || "6k8kkgb8v5gqh7gquriql";
-const DISCORD_INTEGRATION_ID = process.env.KEEPERHUB_DISCORD_ID || "libp44j88ukrimww72zac";
-const RENDER_URL = process.env.RENDER_EXTERNAL_URL || "https://swarmex.onrender.com";
+const WEBHOOK_URL = process.env.KEEPERHUB_WEBHOOK_TRIGGER_URL || `${KEEPERHUB_API_BASE}/workflows/${WORKFLOW_ID}/webhook`;
+const KEEPERHUB_API_KEY = process.env.KEEPERHUB_API;
 
-const DISCORD_WEBHOOK = "https://discord.com/api/webhooks/1499859318776926410/SOsuh7YvCMzOSgQa0hv8QNTyKR4M6yEL8J6LMv8PKpqoihAWLLd0cdFtJFQLKz00s49T";
-
-async function sendDiscordMessage(content: string): Promise<boolean> {
+async function triggerKeeperHubWebhook(payload: any) {
+  if (!WEBHOOK_URL) {
+    console.warn('[KeeperHub] No webhook URL configured, skipping notification.');
+    return;
+  }
   try {
-    const res = await fetch(DISCORD_WEBHOOK, {
+    const res = await fetch(WEBHOOK_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content })
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': KEEPERHUB_API_KEY ? `Bearer ${KEEPERHUB_API_KEY}` : ''
+      },
+      body: JSON.stringify(payload)
     });
-    return res.ok;
+    if (!res.ok) {
+      console.error(`[KeeperHub] Webhook failed: ${res.status} ${await res.text()}`);
+    }
   } catch (err: any) {
-    console.error('[Discord] Webhook failed:', err.message);
-    return false;
+    console.error('[KeeperHub] Webhook error:', err.message);
   }
 }
 
 // ─── Public API ──────────────────────────────────────────────────────────────
 
-export async function notifyKeeperHubOfNewSession(sessionId: string): Promise<void> {
-  // We no longer need to notify KeeperHub of the session start manually here, 
-  // as server.ts handles the acknowledgment directly now.
-  console.log(`[KeeperHub] New session registered: ${sessionId}`);
+export async function notifyKeeperHubOfNewSession(sessionId: string, intent?: string): Promise<void> {
+  console.log(`[KeeperHub] Notifying of new session: ${sessionId}`);
+  await triggerKeeperHubWebhook({
+    type: 'session_start',
+    sessionId,
+    intent,
+    message: `🚀 **SwarmEx Session Started**\nAnalyzing: \`${intent || 'Unknown'}\``
+  });
 }
 
 export async function notifyKeeperHubOfExecution(
@@ -86,6 +94,11 @@ export async function notifyKeeperHubOfExecution(
     ].join('\n');
   }
 
-  console.log(`[Discord] Sending execution result to Webhook...`);
-  await sendDiscordMessage(message);
+  console.log(`[KeeperHub] Sending execution result to Webhook...`);
+  await triggerKeeperHubWebhook({
+    type: 'execution_result',
+    sessionId,
+    status,
+    message
+  });
 }

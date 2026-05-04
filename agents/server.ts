@@ -104,16 +104,7 @@ app.post('/orchestrator/run', async (req, res) => {
 
   lastProcessedIntents.set(sessionId + intent, now);
 
-  // Manual Discord Acknowledgment (Replaces redundant KeeperHub Node 7)
-  fetch("https://discord.com/api/webhooks/1499859318776926410/SOsuh7YvCMzOSgQa0hv8QNTyKR4M6yEL8J6LMv8PKpqoihAWLLd0cdFtJFQLKz00s49T", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ 
-      content: `🚀 **SwarmEx Session Started**\nAnalyzing: \`${intent}\``
-    })
-  }).catch(err => console.error(`[Discord Ack Fail] ${err.message}`));
-
-  await notifyKeeperHubOfNewSession(sessionId);
+  await notifyKeeperHubOfNewSession(sessionId, intent);
   
   runSwarmGraph(sessionId, intent, emitToSession).catch(err => {
     console.error(`[Server Swarm Catch] ${err.message}`);
