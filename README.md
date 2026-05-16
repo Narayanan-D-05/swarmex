@@ -408,12 +408,13 @@ cp .env.example .env
 Fill in `.env` with your values:
 
 ```env
-# 0G Chain
+# 0G Chain (Storage + Agent Registry only)
 OG_CHAIN_RPC=https://evmrpc-testnet.0g.ai
+OG_CHAIN_ID=80087
 OG_STORAGE_INDEXER=https://indexer-storage-testnet-turbo.0g.ai
 OG_COMPUTE_PROVIDER=0xa48f01287233509FD694a22Bf840225062E67836
 
-# Base Sepolia
+# Base Sepolia (Uniswap v4 execution)
 BASE_SEPOLIA_RPC=https://sepolia.base.org
 
 # Your wallets (never commit real keys)
@@ -424,15 +425,33 @@ RISK_AGENT_PRIVATE_KEY=0x...
 # Uniswap v4 contracts (Base Sepolia)
 POOL_MANAGER_ADDRESS=0x05E73354cFDd6745C338b50BcFDfA3Aa6fA03408
 UNIVERSAL_ROUTER_ADDRESS=0x492e6456d9528771018deb9e87ef7750ef184104
+PERMIT2_ADDRESS=0x000000000022D473030F116dDEE9F6B43aC78BA3
 SEPOLIA_USDC_ADDRESS=0x036CbD53842c5426634e7929541eC2318f3dCF7e
 
-# 0G contracts
+# 0G contracts (Registry + Session Treasury)
+SESSION_TREASURY_ADDRESS=0x12Af0d9b7E5BFAE7cB5F6ACF7C05725239A95c00
 AGENT_REGISTRY_ADDRESS=0x25C9e89a0Be824f87C78589F17140bbC960ed178
+
+# x402 (optional)
+X402_FACILITATOR_URL=https://facilitator.cdp.coinbase.com
 
 # KeeperHub
 KEEPERHUB_WEBHOOK_TRIGGER_URL=https://app.keeperhub.com/api/workflows/.../webhook
 KEEPERHUB_WORKFLOW_ID=...
 KEEPERHUB_API=...
+
+# Uniswap API (optional, for /quote)
+UNISWAP_API_KEY=...
+
+# Agent server
+PORT=3001
+AGENT_SERVER_URL=https://swarmex.onrender.com
+RENDER_EXTERNAL_URL=https://swarmex.onrender.com
+DEMO_MODE=false
+
+# Discord (optional)
+DISCORD_TOKEN=...
+DISCORD_WEBHOOK_URL=...
 ```
 
 ### 3. Fund Your Wallets
@@ -516,8 +535,10 @@ To redeploy, push to the `main` branch. Render auto-deploys from GitHub.
 |---|---|
 | `POOL_MANAGER_ADDRESS` | `0x05E73354cFDd6745C338b50BcFDfA3Aa6fA03408` |
 | `UNIVERSAL_ROUTER_ADDRESS` | `0x492e6456d9528771018deb9e87ef7750ef184104` |
+| `PERMIT2_ADDRESS` | `0x000000000022D473030F116dDEE9F6B43aC78BA3` |
 | `SEPOLIA_USDC_ADDRESS` | `0x036CbD53842c5426634e7929541eC2318f3dCF7e` |
 | `AGENT_REGISTRY_ADDRESS` | `0x25C9e89a0Be824f87C78589F17140bbC960ed178` |
+| `SESSION_TREASURY_ADDRESS` | `0x12Af0d9b7E5BFAE7cB5F6ACF7C05725239A95c00` |
 | `OG_COMPUTE_PROVIDER` | `0xa48f01287233509FD694a22Bf840225062E67836` |
 
 ### Frontend (Vercel)
